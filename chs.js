@@ -422,7 +422,7 @@ var cnPostfix = {
     " minute.": " 分钟.",
     " berry": " 浆果",
     " seeds, have": " 种子, 有",
-    ", gained at once": "，立即获得",
+    "gained at once": "立即获得",
     "": "",
     "": "",
     "": "",
