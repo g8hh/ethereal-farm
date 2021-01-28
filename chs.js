@@ -12,8 +12,8 @@ var cnItems = {
     _OTHER_: [],
 
     //未分类：
-    '': '',
-    '': '',
+    'a weathered tree': '一棵饱经风霜的树',
+    'about & changelog': '关于 & 更新日志',
     '': '',
     '': '',
     '': '',
