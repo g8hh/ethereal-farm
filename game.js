@@ -194,8 +194,17 @@ function softReset() {
   state.time = util.getTime();
   state.prevtime = state.time;
 
-  state.reset_stats.push(state.treelevel);
-  if(state.reset_stats.length > 100) state.reset_stats = state.reset_stats.shift();
+  var addStat = function(array, stat) {
+    array.push(stat);
+    var maxlen = 50;
+    if(array.length > maxlen) array = array.slice(array.length - maxlen, array.length);
+  };
+
+  addStat(state.reset_stats_level, state.treelevel);
+  addStat(state.reset_stats_level2, state.treelevel2);
+  addStat(state.reset_stats_time, Math.floor((state.time - state.c_starttime) / 900));
+  addStat(state.reset_stats_resin, Math.floor(Num.log2(state.g_res.resin.addr(1)).valueOf()));
+  addStat(state.reset_stats_challenge, 0);
 
   state.p_starttime = state.c_starttime;
   state.p_runtime = state.c_runtime;
@@ -214,12 +223,18 @@ function softReset() {
   state.p_numfruits = state.c_numfruits;
   state.p_numfruitupgrades = state.p_numfruitupgrades;
 
+  var runtime2 = state.time - state.c_starttime;
+
   if(state.g_slowestrun == 0) {
     state.g_fastestrun = state.c_runtime;
     state.g_slowestrun = state.c_runtime;
+    state.g_fastestrun2 = runtime2;
+    state.g_slowestrun2 = runtime2;
   } else {
     state.g_fastestrun = Math.min(state.g_fastestrun, state.c_runtime);
     state.g_slowestrun = Math.max(state.g_slowestrun, state.c_runtime);
+    state.g_fastestrun2 = Math.min(state.g_fastestrun2, runtime2);
+    state.g_slowestrun2 = Math.max(state.g_slowestrun2, runtime2);
   }
 
   state.c_starttime = state.time;
@@ -268,6 +283,7 @@ function softReset() {
   state.g_res.addInPlace(essence);
   state.c_res.addInPlace(essence);
   state.fruit_sacr = [];
+  state.fruit_seen = false; // any new fruits are likely sacrificed now, no need to indicate fruit tab in red anymore
 
   // fix the accidental grow time ethereal upgrade that accidentally gave 7x7 field due to debug code in version 0.1.11
   // TODO: update this code to match next such upgrades this code once a 7x7 upgrade exists!
@@ -455,6 +471,14 @@ function PreCell(f) {
   // --> this is already calculated in for flowers. For berries it must be done as above.
   this.boost = Num(0);
 
+  // boostboost from beehives to flowers. This is precomputed (unloke boost from flowers and nettles to plants, which is not implemented like this yet) to avoid too many recursive computations
+  this.beeboostboost_received = Num(0);
+  this.num_bee = 0; // num bee neighbors, if receiving boostboost
+
+
+  this.nettlemalus_received = Num(1);
+  this.num_nettle = 0; // num nettle neighbors, if receiving malus
+
 
   this.weights = null; // used during precompute of field: if filled in, array of 4 elements: weights for N, E, S, W neighbors of their share of recource consumption from this. Used for mushrooms taking seeds of neighboring berries.
 
@@ -467,6 +491,8 @@ function PreCell(f) {
   this.prod0b = Res();
   // during consumption/production computation, not useful for any UI, intermediate stage only
   this.prod1 = Res();
+  this.wanted = Res();
+  this.gotten = Res();
   // after consumption/production computation, and after leeching, so useable as actual production value, not just temporary
   // useful for UI showing actual production of this plant (however doesn't show consumption as negatives have been zeroed out and subtracted frmo producers instead), and also for the actual computation of resources gained during an update tick
   this.prod2 = Res();
@@ -499,7 +525,9 @@ var prefield = [];
 
 // precompute boosts of things that depend on each other on the field
 // the dependency graph (of crops on neighbor crops) is as follows:
-// - flower and berry depend on nettle for the negative effect
+// - flower, berry, mushroom (todo: bee?) depend on tree for winter warmth
+// - bee, flower, berry depend on nettle for the negative effect
+// - flower depend on bee for the boostboost
 // - berry and mushroom depends on flower for the boost
 // - mushroom depends on nettle for the boost
 // - mushroom depends on berry for the spores income
@@ -520,6 +548,54 @@ function precomputeField() {
 
   state.mistletoes = 0;
 
+  // pass 0: precompute several types of boost to avoid too many recursive calls when computing regular boosts
+  for(var y = 0; y < h; y++) {
+    for(var x = 0; x < w; x++) {
+      var f = state.field[y][x];
+      var c = f.getCrop();
+      if(c) {
+        var p = prefield[y][x];
+        if(c.type == CROPTYPE_FLOWER || c.type == CROPTYPE_BERRY) {
+          for(var dir = 0; dir < 4; dir++) { // get the neighbors N,E,S,W
+            var x2 = x + (dir == 1 ? 1 : (dir == 3 ? -1 : 0));
+            var y2 = y + (dir == 2 ? 1 : (dir == 0 ? -1 : 0));
+            if(x2 < 0 || x2 >= w || y2 < 0 || y2 >= h) continue;
+            var f2 = state.field[y2][x2];
+            var c2 = f2.getCrop();
+            if(c2 && c2.type == CROPTYPE_NETTLE) {
+              var boost = c2.getBoost(f2);
+              p.nettlemalus_received.divInPlace(boost.addr(1));
+              p.num_nettle++;
+            }
+          }
+        }
+      }
+    }
+  }
+  for(var y = 0; y < h; y++) {
+    for(var x = 0; x < w; x++) {
+      var f = state.field[y][x];
+      var c = f.getCrop();
+      if(c) {
+        var p = prefield[y][x];
+        if(c.type == CROPTYPE_FLOWER) {
+          for(var dir = 0; dir < 4; dir++) { // get the neighbors N,E,S,W
+            var x2 = x + (dir == 1 ? 1 : (dir == 3 ? -1 : 0));
+            var y2 = y + (dir == 2 ? 1 : (dir == 0 ? -1 : 0));
+            if(x2 < 0 || x2 >= w || y2 < 0 || y2 >= h) continue;
+            var f2 = state.field[y2][x2];
+            var c2 = f2.getCrop();
+            if(c2 && c2.type == CROPTYPE_BEE) {
+              var boostboost = c2.getBoostBoost(f2);
+              p.beeboostboost_received.addInPlace(boostboost);
+              p.num_bee++;
+            }
+          }
+        }
+      }
+    }
+  }
+
   // pass 1: compute boosts of flowers and nettles, and other misc position related features
   for(var y = 0; y < h; y++) {
     for(var x = 0; x < w; x++) {
@@ -530,7 +606,7 @@ function precomputeField() {
         if(c.type == CROPTYPE_FLOWER || c.type == CROPTYPE_NETTLE) {
           p.boost = c.getBoost(f, p.breakdown);
         }
-        if(c.type == CROPTYPE_MISTLETOE && f.growth >= 1) {
+        if(c.type == CROPTYPE_MISTLETOE) {
           for(var dir = 0; dir < 4; dir++) { // get the neighbors N,E,S,W
             var x2 = x + (dir == 1 ? 1 : (dir == 3 ? -1 : 0));
             var y2 = y + (dir == 2 ? 1 : (dir == 0 ? -1 : 0));
@@ -538,7 +614,7 @@ function precomputeField() {
             var f2 = state.field[y2][x2];
             if(f2.index == FIELD_TREE_TOP || f2.index == FIELD_TREE_BOTTOM) {
               p.treeneighbor = true;
-              state.mistletoes++;
+              if(f.growth >= 1) state.mistletoes++;
               break;
             }
           }
@@ -578,10 +654,14 @@ function precomputeField() {
         var prod = c.getProd(f, false, p.breakdown);
         p.prod0 = prod;
         p.prod0b = Res(prod); // a separate copy
-        // prod1 is, for the case of mushrooms and seeds, a negative amount of seeds, and if there is leech, the total amount of seeds needed included for the leeched spores.
-        // pass 4 will then add positive seeds from berry neighbors to prod1, and when prod1 reaches 0 (or higher), the full consumption has been satisfied, otherwise it's partial
+        // used by pass 4, production that berry has avaialble for mushrooms, which is then subtarcted from
         p.prod1 = Res(prod);
-        if(p.prod1.seeds.ltr(0)) p.prod1.seeds.mulInPlace(p.leech.addr(1));
+        if(prod.seeds.ltr(0)) {
+          // how much input mushrooms want
+          p.wanted.seeds = prod.seeds.neg();
+          // if there is leech on the mushroom, it wants more seeds
+          p.wanted.seeds.mulInPlace(p.leech.addr(1));
+        }
       }
     }
   }
@@ -637,8 +717,7 @@ function precomputeField() {
             if(p.producers.length == 0) continue; // no producers at all for this mushroom
             // want is how much seeds we want, but only for the slice allocated to this producer
             // computed outside of the producers loop to ensure it's calculated the same for all producers
-            //var want = p.prod1.seeds.neg().divr(p.producers.length).mul(p.leech.addr(1));
-            var want = p.prod1.seeds.neg().divr(p.producers.length);
+            var want = p.wanted.seeds.sub(p.gotten.seeds).divr(p.producers.length);
             for(var i = 0; i < p.producers.length; i++) {
               var p2 = p.producers[i];
               if(p2.last_it != it) {
@@ -653,13 +732,13 @@ function precomputeField() {
                 // in last iteration, just greedily take everything. This means that there is some unintended positional advantage to some
                 // locations, but it should be small with enough iterations.
                 // TODO: use better algo that prevents this
-                want = p.prod1.seeds.neg().mul(p.leech.addr(1));
+                want = p.wanted.seeds.sub(p.gotten.seeds);
                 have = p2.prod1.seeds;
               }
               var amount = Num.min(want, have);
               if(amount.gter(0)) {
                 did_something = true;
-                p.prod1.seeds.addInPlace(amount);
+                p.gotten.seeds.addInPlace(amount);
                 p2.prod1.seeds.subInPlace(amount);
               }
             }
@@ -680,10 +759,8 @@ function precomputeField() {
         p.prod2 = Res(p.prod1);
         p.prod3 = Res(p.prod0);
         if(c.type == CROPTYPE_MUSH) {
-          var wanted = p.prod0.seeds.neg().mul(p.leech.addr(1));
-          if(wanted.eqr(0)) continue; // zero input required, so nothing to do (no current mushroom has this case though, but avoid NaNs if it'd happen)
-          var gotten = wanted.add(p.prod1.seeds); // prod1.seeds is <= 0 so is a subtraction
-          var ratio = gotten.div(wanted);
+          if(p.wanted.seeds.eqr(0)) continue; // zero input required, so nothing to do (no current mushroom has this case though, but avoid NaNs if it'd happen)
+          var ratio = p.gotten.seeds.div(p.wanted.seeds);
           // the actual amount of spores produced based on satisfied input amount
           // if there was watercress leeching from this mushroom, then the amount may be less if the multiplied-by-leech input was not satisfied, but the output of the watercress makes up for that in a next pass
           p.prod2.spores.mulInPlace(ratio);
@@ -716,12 +793,14 @@ function precomputeField() {
             if(c2) {
               var p2 = prefield[y2][x2];
               if(c2.type == CROPTYPE_BERRY || c2.type == CROPTYPE_MUSH) {
-                var leech0 = p2.prod0.mul(leech);
                 var leech2 = p2.prod2.mul(leech);
                 var leech3 = p2.prod3.mul(leech);
                 p.prod2.addInPlace(leech2);
                 p.prod3.addInPlace(leech3);
-                p.prod0b.addInPlace(leech0);
+                // we could in theory add "leech0=p2.prod0.mul(leech)" instead of leech2 to the hypothetical production given by prod0b for UI reasons.
+                // however, then the hypothetical seed production may differ from the main seed production even when mushrooms have enough seeds to produce all spores
+                // and that is not the goal of the hypothetical production display. So instad add the actual leech. when adding leech0, then if you have champignon+blueberry+watercress (in that order, and with champignon satisfied), it'd display some hypothetical seds in gray parenthesis which is undesired
+                p.prod0b.addInPlace(leech2);
                 total.addInPlace(leech3); // for the breakdown
                 num++;
               }
@@ -730,7 +809,7 @@ function precomputeField() {
           p.leechnum = num;
           // also add this to the breakdown
           if(!total.empty()) {
-            p.breakdown.push(['<b><i><font color="#060">copying neighbors (' + num + ')</font></i></b>', false, total, p.prod3.clone()]);
+            p.breakdown.push(['<span class="efWatercressHighlight">copying neighbors (' + num + ')</span>', false, total, p.prod3.clone()]);
             c.getLeech(f, p.breakdown_leech);
           } else {
             if(state.upgrades[berryunlock_0].count) p.breakdown.push(['no neighbors, not copying', false, total, p.prod3.clone()]);
@@ -796,7 +875,7 @@ function addRandomFruit() {
 
   var num_abilities = getNumFruitAbilities(tier);
 
-  var abilities = [FRUIT_BERRYBOOST, FRUIT_MUSHBOOST, FRUIT_MUSHEFF, FRUIT_FLOWERBOOST, FRUIT_LEECH, FRUIT_GROWSPEED, FRUIT_COOLDOWN, FRUIT_FERN];
+  var abilities = [FRUIT_BERRYBOOST, FRUIT_MUSHBOOST, FRUIT_MUSHEFF, FRUIT_FLOWERBOOST, FRUIT_LEECH, FRUIT_GROWSPEED, FRUIT_WEATHER, FRUIT_FERN];
 
   for(var i = 0; i < num_abilities; i++) {
     var roll = Math.floor(getRandomFruitRoll() * abilities.length);
@@ -818,6 +897,8 @@ function addRandomFruit() {
 
   state.c_numfruits++;
   state.g_numfruits++;
+
+  state.fruit_seen = false;
 
   updateFruitUI();
   return fruit;

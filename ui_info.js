@@ -171,7 +171,8 @@ function updateResourceUI() {
       }
       if(s == 3) {
         result += '• Harsh conditions: -' + Num(1).sub(getWinterMalus()).mulr(100).toString() + '% berry / mushroom / flower stats when not next to the tree<br>';
-        result += '• Winter tree warmth: +' + getWinterTreeWarmth().subr(1).mulr(100).toString() + '% berry / mushroom / flower stats when next to the tree<br>';
+        var winterwarmth_location_text = state.upgrades2[upgrade2_diagonal].count ? ' (orthogonal or diagonal: 10 spots)' : ' (current reach: orthogonal, 6 spots)';
+        result += '• Winter tree warmth: +' + getWinterTreeWarmth().subr(1).mulr(100).toString() + '% berry / mushroom / flower stats when next to the tree ' + winterwarmth_location_text + '<br>';
         result += '• Resin bonus: ' + getWinterTreeResinBonus().subr(1).mulr(100).toString() + '% more resin added when tree levels up during the winter<br>';
       }
       result += '<br><br>';
@@ -243,7 +244,11 @@ function updateResourceUI() {
       gain_pos = arr_pos[index]; // actual, without consumption
       gain_hyp = arr_hyp[index]; // hypothetical aka potential (if mushrooms were allowed to consume all seeds, making total or neighbor seed production negative)
       gain_hyp_pos = arr_hyp_pos[index]; // hypothetical aka potential, without consumption
-      var hyp_neq = !gain.near(gain_hyp, 0.0001);
+
+      // using near: the computations of gain and gain_hyp may numerically differ, even when they are theoretically the same
+      // this could cause the seeds to display a hypothetical number in brackets even though it's the same
+      // if this problem persists even with larger tolerance, a different measure  must be taken, such as only displaying hyp if at least one of the resources (like spores) has a significant difference
+      var hyp_neq = !gain.near(gain_hyp, 0.001);
 
       text = name + '<br>' + res.toString() + '<br>' + gain.toString() + '/s';
       if(hyp_neq) text += ' <font color="#888">(' + gain_hyp.toString() + '/s)</font>';
@@ -256,14 +261,19 @@ function updateResourceUI() {
       if(index == 2) {
         // resin
         var text = '<b>' + upper(name) + '</b><br/><br/>';
-        text += 'Current amount: ' + res.toString() + '<br/><br/>';
-        text += 'Current production boost for unspent resin: ' + getUnusedResinBonus().subr(1).mulr(100).toString() + '%<br/><br/>';
+        text += 'Total resin earned entire game: ' + state.g_res.resin.toString();
+        text += '<br/><br/>';
+        text += 'Unspent resin: ' + res.toString() + '<br/>';
+        text += '→ Production boost for unspent resin: ' + getUnusedResinBonus().subr(1).mulr(100).toString() + '%';
+        text += '<br><br>';
+        text += 'Collected upcoming resin: ' + upcoming.toString() + '<br>';
         if(tlevel > 1) {
-          text += 'Collected upcoming resin: ' + upcoming.toString() + '<br/><br/>';
-          text += 'Upcoming resin bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x<br/><br/>';
+          text += '→ Bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x, so total: ' + upcoming2.toString();
         }
-        text += 'Total upcoming amount: ' + upcoming2.toString() + '<br/><br/>';
-        if(upcoming2.neqr(0)) text += 'Upcoming production boost for unspent resin: ' + getUnusedResinBonusFor(upcoming2.add(state.res.resin)).subr(1).mulr(100).toString() + '%<br/><br/>';
+        text += '<br>';
+        if(upcoming2.neqr(0)) text += '→ Upcoming boost for unspent resin: ' + getUnusedResinBonusFor(upcoming2.add(state.res.resin)).subr(1).mulr(100).toString() + '%';
+
+
       }
       if(index == 3) {
         // twigs

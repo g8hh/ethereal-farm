@@ -90,6 +90,13 @@ function MedalState() {
   this.earned = false;
 }
 
+function ChallengeState() {
+  this.unlocked = false;
+  this.started = 0; // amount started, whether successful or not
+  this.completed = 0; // amount successfully finished
+  this.maxlevel = 0; // max level reached with this challenge
+}
+
 
 
 // all the state that should be able to get saved
@@ -175,7 +182,7 @@ function State() {
 
   // fruit
   this.fruit_seed = -1; // random seed for creating random fruits
-  this.fruit_seen = false; // whether ever seen the fruits tab at all (for red color)
+  this.fruit_seen = false; // whether seen latest fruit drop (for red color)
   this.fruit_active = []; // current active fruit (array length is 0 or 1 only)
   this.fruit_stored = []; // fruits in storage that stay after transcension
   this.fruit_slots = 2; // amount of slots for fruit_stored
@@ -195,6 +202,11 @@ function State() {
   this.help_seen = {}; // ever seen this help message at all as dialog
   this.help_seen_text = {}; // ever seen this help message at all as text
   this.help_disable = {}; // disabled this help message (available once seeing it the second time)
+
+  // challenges
+  this.challenge = 0;
+  // the state objects for individual challenges
+  this.challenges = [];
 
   // saved stats, global across all runs
   this.g_numresets = 0; // amount of soft resets done
@@ -217,6 +229,8 @@ function State() {
   this.g_delete2tokens = 0; // global count of ethereal deletion tokens received, this is not the actual recource but a stat
   this.g_fastestrun = 0; // runtime of fastest transcension
   this.g_slowestrun = 0; // runtime of slowest transcension
+  this.g_fastestrun2 = 0; // as measured on wall clock instead of the runtime that gets deltas added each time
+  this.g_slowestrun2 = 0;
 
   this.g_starttime = 0; // starttime of the game (when first run started)
   this.g_runtime = 0; // this would be equal to getTime() - g_starttime if game-time always ran at 1x (it does, except if pause or boosts would exist)
@@ -276,7 +290,12 @@ function State() {
   this.c_numfruitupgrades = 0;
   // WHEN ADDING FIELDS HERE, UPDATE THEM ALSO IN softReset()!
 
-  this.reset_stats = []; // reset at what tree level for each reset
+  // progress stats
+  this.reset_stats_level = []; // reset at what tree level for each reset
+  this.reset_stats_level2 = []; // tree level 2 at end of this run
+  this.reset_stats_time = []; // time of this run, as integer of 15-minute intervals to keep the stat compact
+  this.reset_stats_resin = []; // log2 of 1 + total resin earned in total at start of this run, as integer
+  this.reset_stats_challenge = []; // what type of challenge, if any, for this run
 
   // amount of fields with nothing on them (index 0)
   // derived stat, not to be saved
