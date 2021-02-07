@@ -444,7 +444,7 @@ function createStatsDialog() {
 
   // these stats either are at the end of current run, or total, depending on whether "total" is visuble due to having done transcensions
   text += '• achievements: ' + open + state.medals_earned + close + '<br>';
-  text += '• achievements production bonus: ' + open + '+' + state.medal_prodmul.subr(1).mulr(100).toString() + '%' + close + '<br>';
+  text += '• achievements production bonus: ' + open + '+' + state.medal_prodmul.subr(1).toPercentString() + close + '<br>';
   text += '<br>';
 
   if(state.g_numresets > 0) {
@@ -461,7 +461,9 @@ function createStatsDialog() {
       }
       for(var i = 0; i < n; i++) {
         var j = n - 1 - i;
-        text += (i == 0 ? ' ' : ', ') + state.reset_stats_level[state.reset_stats_level.length - 1 - i] + ' (' + (state.reset_stats_time[j] / 4) + 'h)';
+        text += (i == 0 ? ' ' : ', ') +
+            state.reset_stats_level[state.reset_stats_level.length - 1 - i] +
+            ' (' + (state.reset_stats_time[state.reset_stats_time.length - 1 - i] / 4) + 'h)';
       }
       text += close + '<br>';
     }
@@ -471,8 +473,37 @@ function createStatsDialog() {
     text += '<br>';
   }
 
+  if(state.g_numresets > 0 && state.challenges_unlocked) {
+    text += '<b>Challenges</b><br>';
+    if(state.challenge) {
+      text += '• current challenge: ' + open + upper(challenges[state.challenge].name) + close + '<br>';
+    } else {
+      text += '• current challenge: ' + open + 'None' + close + '<br>';
+    }
+    text += '• challenges attempted: ' + open + (state.g_numresets_challenge + (state.challenge ? 1 : 0)) + close + '<br>';
+    text += '• challenges unlocked: ' + open + state.challenges_unlocked + close + '<br>';
+    text += '• challenges completed: ' + open + state.challenges_completed + close + '<br>';
+    text += '• total challenge production bonus: ' + open + state.challenge_bonus.toPercentString() + close + '<br>';
+
+    for(var i = 0; i < registered_challenges.length; i++) {
+      var c = challenges[registered_challenges[i]];
+      var c2 = state.challenges[registered_challenges[i]];
+      if(!c2.unlocked) continue;
+      text += '• ' + c.name + ': completed: ' + open +  (c2.completed ? 'yes' : 'no') + close + ', runs: ' + open + c2.num + close +
+                              ', fastest target level time: ' + open + (c2.besttime ? util.formatDuration(c2.besttime) : '--') + close +
+                              ', highest level: ' + open + c2.maxlevel + close + ', bonus per level: ' + open + c.bonus.toPercentString() + close +
+                              ', production bonus: ' + open +  (c.bonus.mulr(c2.maxlevel)).toPercentString() + close + '<br>';
+    }
+
+    text += '<br>';
+  }
+
   if(state.g_numresets > 0) {
-    text += '<b>Previous Run</b><br>';
+    if(state.challenge) {
+      text += '<b>Previous Run (Non-challenge)</b><br>';
+    } else {
+      text += '<b>Previous Run</b><br>';
+    }
     text += '• tree level: ' + open + state.p_treelevel + close + '<br>';
     text += '• start time: ' + open + util.formatDate(state.p_starttime) + close + '<br>';
     text += '• duration: ' + open + util.formatDuration(state.p_runtime) + close + '<br>';
@@ -518,7 +549,7 @@ function createChangelogDialog() {
 
   text += 'Reddit: <a target="_blank" href="https://www.reddit.com/r/etherealfarm/">https://www.reddit.com/r/etherealfarm/</a>';
   text += '<br/>';
-  text += 'Discord: <a target="_blank" href="https://discord.gg/WaHmTBtY">https://discord.gg/qxXrG8WGcd</a>';
+  text += 'Discord: <a target="_blank" href="https://discord.gg/9eaTxXvMT2">https://discord.gg/9eaTxXvMT2</a>';
   text += '<br/>';
   text += 'Github: <a target="_blank" href="https://github.com/lvandeve/etherealfarm">https://github.com/lvandeve/etherealfarm</a>';
   text += '<br/><br/>';
@@ -691,6 +722,7 @@ function initSettingsUI_in(dialogFlex) {
         state.g_lastimporttime = util.getTime();
         closeAllDialogs();
         removeMedalChip();
+        clearUndo();
         initUI();
         update();
         util.clearLocalStorage(localstorageName_recover); // if there was a recovery save, delete it now assuming that a successful import means some good save exists
@@ -816,9 +848,10 @@ function initSettingsUI() {
     }
     removeAllTooltips();
   });
-  registerTooltip(undobutton.div,
-      'Undo your last action(s). Press again to redo.<br><br>' +
-      'Undo is saved when doing an action, but with at least a minute in-between, so multiple actions in quick succession may all be undone.<br><br>' +
-      'No matter how long ago the undo was saved, you still get the correct produced resources now for that timespan.' +
-      '');
+  registerTooltip(undobutton.div, function() {
+    return 'Undo your last action(s). Press again to redo.<br><br>' +
+      'Undo is saved when doing an action, but with at least ' + util.formatDuration(minUndoTime) + ' of time in-between, so multiple actions in quick succession may all be undone.<br><br>' +
+      'Undo save time duration is limited to ' + util.formatDuration(maxUndoTime) + '. If you undo a long time duration, you\'ll still get the correct amount of resources gained during that time.' +
+      '';
+    });
 }

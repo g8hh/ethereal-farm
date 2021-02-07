@@ -30,6 +30,7 @@ var CROPTYPE_SPECIAL = croptype_index++; // used for some ethereal crops
 var CROPTYPE_LOTUS = croptype_index++; // ethereal field only, this is an ethereal crop that boost their ethereal neighbors, so a flower type, but regular flowers in ethereal field boost the basic field flowers instead
 var CROPTYPE_MISTLETOE = croptype_index++;
 var CROPTYPE_BEE = croptype_index++; // boosts flowers
+var CROPTYPE_CHALLENGE = croptype_index++; // only exists for challenges
 var NUM_CROPTYPES = croptype_index;
 
 function getCropTypeName(type) {
@@ -42,18 +43,20 @@ function getCropTypeName(type) {
   if(type == CROPTYPE_LOTUS) return 'lotus';
   if(type == CROPTYPE_MISTLETOE) return 'mistletoe';
   if(type == CROPTYPE_BEE) return 'beehive';
+  if(type == CROPTYPE_CHALLENGE) return 'challenge';
   return 'unknown';
 }
 
 function getCropTypeHelp(type) {
   switch(type) {
-    case CROPTYPE_MUSH: return 'Requires berries as neighbors to consume seeds to produce spores. Boosted by flowers and nettles. Neighboring watercress can copy its production (but also consumption).';
-    case CROPTYPE_NETTLE: return 'Boosts neighboring mushrooms spores production (without increasing seeds consumption), but negatively affects neighboring berries and flowers, so avoid touching those with this plant';
-    case CROPTYPE_FLOWER: return 'Boosts neighboring berries and mushrooms, their production but also their consumption. Negatively affected by neighboring nettles.';
-    case CROPTYPE_SHORT: return 'Produces a small amount of seeds on its own, but can produce much more resources by copying from berry and mushroom neighbors once you have those';
     case CROPTYPE_BERRY: return 'Produces seeds. Boosted by flowers. Negatively affected by nettles. Neighboring mushrooms can consume its seeds to produce spores. Neighboring watercress can copy its production.';
+    case CROPTYPE_MUSH: return 'Requires berries as neighbors to consume seeds to produce spores. Boosted by flowers and nettles. Neighboring watercress can copy its production (but also consumption).';
+    case CROPTYPE_FLOWER: return 'Boosts neighboring berries and mushrooms, their production but also their consumption. Negatively affected by neighboring nettles.';
+    case CROPTYPE_NETTLE: return 'Boosts neighboring mushrooms spores production (without increasing seeds consumption), but negatively affects neighboring berries and flowers, so avoid touching those with this plant';
+    case CROPTYPE_SHORT: return 'Produces a small amount of seeds on its own, but can produce much more resources by copying from berry and mushroom neighbors once you have those';
     case CROPTYPE_MISTLETOE: return 'Produces twigs when tree levels up, when orthogonally next to the tree only. Increases level up spores requirement and slightly decreases resin gain.';
     case CROPTYPE_BEE: return 'Boosts orthogonally neighboring flowers. Since this is a boost of a boost, indirectly boosts berries and mushrooms by an entirely new factor.';
+    case CROPTYPE_CHALLENGE: return 'A type of crop specific to a challenge, not available in regular runs.';
   }
   return undefined;
 }
@@ -153,8 +156,9 @@ function Crop() {
   this.prod = Res(); // production per second (do not use directly, use getProd() to get all multipliers taken into account)
   this.index = 0; // index in the crops array
   this.planttime = 0; // in seconds
-  this.boost = Num(0); // how much this boosts neighboring crops, 0 means no boost, 1 means +100%, etc... (do not use directly, use getBoost() to get all multipliers taken into account)
-  this.boostboost = Num(0); // for beehives
+  // how much this boosts neighboring crops, 0 means no boost, 1 means +100%, etc... (do not use directly, use getBoost() to get all multipliers taken into account)
+  // meaning depends on crop type, e.g. for beehives this is boostboost instead, challenge specific crops may use this value, ...
+  this.boost = Num(0);
   this.tagline = '';
 
   this.basic_upgrade = null; // id of registered upgrade that does basic upgrades of this plant
@@ -257,6 +261,9 @@ Crop.prototype.getCost = function(opt_adjust_count) {
   var mul = sameTypeCostMultiplier;
   if(this.type == CROPTYPE_FLOWER) mul = sameTypeCostMultiplier_Flower;
   if(this.type == CROPTYPE_SHORT) mul = sameTypeCostMultiplier_Short;
+  if(this.type == CROPTYPE_CHALLENGE) {
+    if(this.challengecroppricemul) mul = this.challengecroppricemul;
+  }
   var countfactor = Math.pow(mul, state.cropcount[this.index] + (opt_adjust_count || 0));
   return this.cost.mulr(countfactor);
 };
@@ -336,10 +343,6 @@ Crop.prototype.getProd = function(f, pretend, breakdown) {
     return Res();
   }
 
-  // medal
-  result.mulInPlace(state.medal_prodmul);
-  if(breakdown) breakdown.push(['achievements', true, state.medal_prodmul, result.clone()]);
-
   // upgrades
   if(this.basic_upgrade != null && this.type != CROPTYPE_SHORT) {
     var u = state.upgrades[this.basic_upgrade];
@@ -359,6 +362,10 @@ Crop.prototype.getProd = function(f, pretend, breakdown) {
       if(breakdown) breakdown.push([' upgrades (' + u.count + ')', true, mul_upgrade, result.clone()]);
     }
   }
+
+  // medal
+  result.mulInPlace(state.medal_prodmul);
+  if(breakdown) breakdown.push(['achievements', true, state.medal_prodmul, result.clone()]);
 
 
   if(this.type == CROPTYPE_BERRY) {
@@ -527,6 +534,20 @@ Crop.prototype.getProd = function(f, pretend, breakdown) {
     if(breakdown) breakdown.push(['sun', true, bonus_sun, result.clone()]);
   }
 
+  // challenges
+  if(this.type == CROPTYPE_BERRY && state.challenge_bonus.neqr(0)) {
+    var challenge_bonus = state.challenge_bonus.addr(1);
+    result.mulInPlace(challenge_bonus);
+    if(breakdown) breakdown.push(['challenge highest levels', true, challenge_bonus, result.clone()]);
+  }
+
+  // bee challenge
+  if(state.challenge == challenge_bees) {
+    var bonus_bees = getWorkerBeeBonus().addr(1);
+    result.posmulInPlace(bonus_bees);
+    if(breakdown) breakdown.push(['worker bees (challenge)', true, bonus_bees, result.clone()]);
+  }
+
   // leech, only computed here in case of "pretend", without pretent leech is computed in more correct way in precomputeField()
   if(pretend && this.type == CROPTYPE_SHORT) {
     var leech = this.getLeech(f);
@@ -566,6 +587,7 @@ Crop.prototype.getProd = function(f, pretend, breakdown) {
 
 // The result is the added value, e.g. a result of 0.5 means a multiplier of 1.5, or a bonus of +50%
 Crop.prototype.getBoost = function(f, breakdown) {
+  if(this.type != CROPTYPE_FLOWER && this.type != CROPTYPE_NETTLE) return Num(0);
   var result = this.boost.clone();
   if(breakdown) breakdown.push(['base', true, Num(0), result.clone()]);
 
@@ -614,7 +636,6 @@ Crop.prototype.getBoost = function(f, breakdown) {
     }
   }
 
-
   // rainbow
   if(this.type == CROPTYPE_FLOWER) {
     if(rainbow_active) {
@@ -625,6 +646,13 @@ Crop.prototype.getBoost = function(f, breakdown) {
       result.mulrInPlace(bonus_rainbow);
       if(breakdown) breakdown.push(['rainbow', true, bonus_rainbow, result.clone()]);
     }
+  }
+
+  // bee challenge
+  if(state.challenge == challenge_bees) {
+    var bonus_bees = getWorkerBeeBonus().addr(1);
+    result.posmulInPlace(bonus_bees);
+    if(breakdown) breakdown.push(['worker bees (challenge)', true, bonus_bees, result.clone()]);
   }
 
 
@@ -659,11 +687,20 @@ Crop.prototype.getBoost = function(f, breakdown) {
 // beehive boosting the boost of flowers
 Crop.prototype.getBoostBoost = function(f, breakdown) {
   var result = Num(0);
-  if(this.type != CROPTYPE_BEE) {
+
+  var hasboostboost = false;
+  if(this.type == CROPTYPE_BEE) hasboostboost = true;
+  if(this.index == challengecrop_0) hasboostboost = true;
+  if(this.index == challengecrop_1) hasboostboost = true;
+  if(this.index == challengecrop_2) hasboostboost = true;
+
+
+  if(!hasboostboost) {
     if(breakdown) breakdown.push(['base', true, Num(0), result.clone()]);
     return result;
   }
-  result = this.boostboost.clone();
+
+  result = this.boost.clone();
   if(breakdown) breakdown.push(['base', true, Num(0), result.clone()]);
 
   // upgrades
@@ -798,12 +835,20 @@ function registerMistletoe(name, tier, planttime, image, opt_tagline) {
   return index;
 }
 
-function registerBeehive(name, tier, boostboost, planttime, image, opt_tagline) {
-  var cost = getFlowerCost(tier);
+function registerBeehive(name, tier, boost, planttime, image, opt_tagline) {
+  var cost = getBeehiveCost(tier);
   var index = registerCrop(name, cost, Res({}), Num(0), planttime, image, opt_tagline);
   var crop = crops[index];
-  crop.boostboost = boostboost;
+  crop.boost = boost;
   crop.type = CROPTYPE_BEE;
+  crop.tier = tier;
+  return index;
+}
+
+function registerChallengeCrop(name, tier, cost, planttime, image, opt_tagline) {
+  var index = registerCrop(name, cost, Res({}), Num(0), planttime, image, opt_tagline);
+  var crop = crops[index];
+  crop.type = CROPTYPE_CHALLENGE;
   crop.tier = tier;
   return index;
 }
@@ -860,6 +905,11 @@ function getNettleCost(i) {
   return getMushroomCost(1.1 + i * 2);
 }
 
+function getBeehiveCost(i) {
+  // Beehives start (and end, for now) after flower_2
+  return getFlowerCost((i + 1) * 2 + 0.15);
+}
+
 var berryplanttime0 = 60;
 var mushplanttime0 = 120;
 var flowerplanttime0 = 180;
@@ -880,7 +930,7 @@ var berry_8 = registerBerry('juniper', 8, berryplanttime0 * 30, juniper);
 crop_register_id = 50;
 var mush_0 = registerMushroom('champignon', 0, mushplanttime0 * 1, champignon);
 var mush_1 = registerMushroom('morel', 1, mushplanttime0 * 4, morel);
-var mush_2 = registerMushroom('amanita', 2, mushplanttime0 * 12, amanita);
+var mush_2 = registerMushroom('amanita', 2, mushplanttime0 * 12, amanita); // names are alphabetical, but amanita counts as "muscaria" because it's not well suited to be the lowest tier mushroom with letter a
 var mush_3 = registerMushroom('portobello', 3, mushplanttime0 * 20, portobello);
 
 // flowers: give boost to neighbors
@@ -889,6 +939,7 @@ var flower_0 = registerFlower('clover', 0, Num(0.5), flowerplanttime0, clover);
 var flower_1 = registerFlower('cornflower', 1, Num(8.0), flowerplanttime0 * 4, cornflower);
 var flower_2 = registerFlower('daisy', 2, Num(128.0), flowerplanttime0 * 12, daisy);
 var flower_3 = registerFlower('dandelion', 3, Num(1024.0), flowerplanttime0 * 20, dandelion);
+// ideas for more flowers: forget me not, iris, lavender, orchid, sun flower, tulip, violet
 
 crop_register_id = 100;
 var nettle_0 = registerNettle('nettle', 0, Num(4), berryplanttime0, nettle);
@@ -901,7 +952,29 @@ crop_register_id = 110;
 var mistletoe_0 = registerMistletoe('mistletoe', 0, 60, mistletoe);
 
 crop_register_id = 120;
-///var bee_0 = registerBeehive('beehive', 0, Num(0.5), flowerplanttime0, images_beehive);
+// In theory, a beehive giving a 50% boost is already worth it: touching 4 flowers means getting 2 flowers worth of production bonus from 1 beehive,
+// spread to multiple berries touching those 4 flowers, making the beehive then slightly better than putting a berry in this spot instead.
+// However, to make the complexity of the beehive mechanic truly worth it, and taking into account that there's likely only room for 1 or 2 on a 6x6 field,
+// the bonus should be much more generous: set to 300% (3.0) now, and upgrades kan make it much higher, just like flowers reach the 10-thousands
+var bee_0 = registerBeehive('beehive', 0, Num(3.0), /*growtime=*/300, images_beehive);
+
+crop_register_id = 200;
+
+var challengecrop_0 = registerChallengeCrop('worker bee', 0, Res({seeds:20000}), 60, images_workerbee,
+    'provides bonus to all crops, but only if next to a flower. Double bonus if next to a queen bee. Since it boosts berries, flowers, mushrooms and mushroom economy, it scales cubically rather than just linearly. Can be boosted by queen bees.');
+crops[challengecrop_0].challengecroppricemul = Num(25);
+crops[challengecrop_0].boost = Num(0.2);
+
+var challengecrop_1 = registerChallengeCrop('queen bee', 0, Res({seeds:200000}), 90, images_queenbee, 'Boosts orthogonally neighboring worker bees. Can be boosted by beehive');
+crops[challengecrop_1].challengecroppricemul = Num(25);
+crops[challengecrop_1].boost = Num(1);
+
+var challengecrop_2 = registerChallengeCrop('beehive', 0, Res({seeds:2000000}), 120, images_beehive, 'Boosts orthogonally neighboring queen bees. Note: not related to main game beehive you get as bonus from completing this challenge, very different rules during the challenge.');
+crops[challengecrop_2].challengecroppricemul = Num(25);
+crops[challengecrop_2].boost = Num(1);
+
+var challengeflower_0 = registerCrop('aster', Res({seeds:20000}), Num(0), Num(0.1), 60, images_aster, 'This flower is only available during the bee challenge');
+crops[challengeflower_0].type = CROPTYPE_FLOWER;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -954,6 +1027,8 @@ function Upgrade() {
   this.deprecated = false; // no longer existing upgrade from earlier game version
 
   this.cropid = undefined; // if not undefined, it means the upgrade is related to this crop
+
+  this.istreebasedupgrade = false; // is one of the upgrades that comes from the tree, such as weather and choice upgrades.
 
   // gets the name, taking stage into account if it has stages
   this.getName = function() {
@@ -1048,9 +1123,9 @@ function registerCropUnlock(cropid, cost, prev_crop_num, prev_crop, opt_pre_fun)
   if(!crop.prod.empty()) description += ' Base production: ' + crop.prod.toString() + '/s.';
   if(!crop.boost.eqr(0)) {
     if(crop.type == CROPTYPE_NETTLE) {
-      description += ' Boosts neighbor mushroom spores production ' + (crop.boost.mulr(100).toString(3, Num.N_FULL)) + '% without increasing seed consumption. However, negatively affects neighboring berries and flowers, so avoid touching those with this plant.';
+      description += ' Boosts neighbor mushroom spores production ' + (crop.boost.toPercentString()) + ' without increasing seed consumption. However, negatively affects neighboring berries and flowers, so avoid touching those with this plant.';
     } else {
-      description += ' Boosts neighbors: ' + (crop.boost.mulr(100).toString(3, Num.N_FULL)) + '%. Does not boost watercress directly, but watercress gets same boosts as its neighbor resource-producing crops.';
+      description += ' Boosts neighbors: ' + (crop.boost.toPercentString()) + '. Does not boost watercress directly, but watercress gets same boosts as its neighbor resource-producing crops.';
     }
   }
   description += ' Crop type: ' + getCropTypeName(crop.type);
@@ -1109,7 +1184,7 @@ function registerCropMultiplier(cropid, cost, multiplier, prev_crop_num, crop_un
 }
 
 
-function registerBoostMultiplier(cropid, cost, adder, prev_crop_num, crop_unlock_id) {
+function registerBoostMultiplier(cropid, cost, adder, prev_crop_num, crop_unlock_id, cost_increase) {
   var crop = crops[cropid];
   var name = crop.name;
 
@@ -1139,7 +1214,7 @@ function registerBoostMultiplier(cropid, cost, adder, prev_crop_num, crop_unlock
   u.cropid = cropid;
 
   u.getCost = function(opt_adjust_count) {
-    var countfactor = Num.powr(Num(flower_upgrade_cost_increase), state.upgrades[this.index].count + (opt_adjust_count || 0));
+    var countfactor = Num.powr(Num(cost_increase), state.upgrades[this.index].count + (opt_adjust_count || 0));
     return this.cost.mul(countfactor);
   };
 
@@ -1241,7 +1316,9 @@ var mistletoeunlock_0 = registerCropUnlock(mistletoe_0, getMushroomCost(0).mulr(
 });
 
 upgrade_register_id = 120;
-//var beeunlock_0 = registerCropUnlock(bee_0, getFlowerCost(1.5), 1, flower_1);
+var beeunlock_0 = registerCropUnlock(bee_0, getBeehiveCost(0), 1, flower_2, function() {
+  return state.challenges[challenge_bees].completed;
+});
 
 //shortunlock_0 does not exist, you start with that berry type already unlocked
 
@@ -1258,6 +1335,9 @@ var basic_upgrade_initial_cost = 10;
 var flower_upgrade_power_increase = 0.5; // additive
 var flower_upgrade_cost_increase = 2.5;
 var flower_upgrade_initial_cost = 15;
+
+var beehive_upgrade_power_increase = 0.5; // additive
+var beehive_upgrade_cost_increase = 5;
 
 upgrade_register_id = 125;
 var berrymul_0 = registerCropMultiplier(berry_0, getBerryCost(0).mulr(basic_upgrade_initial_cost), basic_upgrade_power_increase, 1, berryunlock_0);
@@ -1277,16 +1357,21 @@ var mushmul_2 = registerCropMultiplier(mush_2, getMushroomCost(2).mulr(basic_upg
 var mushmul_3 = registerCropMultiplier(mush_3, getMushroomCost(3).mulr(basic_upgrade_initial_cost), basic_upgrade_power_increase, 1, mushunlock_3);
 
 upgrade_register_id = 175;
-var flowermul_0 = registerBoostMultiplier(flower_0, getFlowerCost(0).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_0);
-var flowermul_1 = registerBoostMultiplier(flower_1, getFlowerCost(1).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_1);
-var flowermul_2 = registerBoostMultiplier(flower_2, getFlowerCost(2).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_2);
-var flowermul_3 = registerBoostMultiplier(flower_3, getFlowerCost(3).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_3);
+var flowermul_0 = registerBoostMultiplier(flower_0, getFlowerCost(0).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_0, flower_upgrade_cost_increase);
+var flowermul_1 = registerBoostMultiplier(flower_1, getFlowerCost(1).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_1, flower_upgrade_cost_increase);
+var flowermul_2 = registerBoostMultiplier(flower_2, getFlowerCost(2).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_2, flower_upgrade_cost_increase);
+var flowermul_3 = registerBoostMultiplier(flower_3, getFlowerCost(3).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, flowerunlock_3, flower_upgrade_cost_increase);
 
 upgrade_register_id = 200;
-var nettlemul_0 = registerBoostMultiplier(nettle_0, getNettleCost(0).mulr(10), flower_upgrade_power_increase, 1, nettleunlock_0);
+var nettlemul_0 = registerBoostMultiplier(nettle_0, getNettleCost(0).mulr(10), flower_upgrade_power_increase, 1, nettleunlock_0, flower_upgrade_cost_increase);
 
 upgrade_register_id = 205;
 var shortmul_0 = registerShortCropTimeIncrease(short_0, Res({seeds:100}), 0.2, 1);
+
+upgrade_register_id = 215;
+var beemul_0 = registerBoostMultiplier(bee_0, crops[bee_0].cost.mulr(10), beehive_upgrade_power_increase, 1, beeunlock_0, beehive_upgrade_cost_increase);
+
+
 
 upgrade_register_id = 250;
 var upgrade_mistunlock = registerUpgrade('mist ability', treeLevelReqBase(4).mulr(0.05 * 0), function() {
@@ -1300,6 +1385,7 @@ var upgrade_mistunlock = registerUpgrade('mist ability', treeLevelReqBase(4).mul
   }
   return false;
 }, 1, 'While enabled, mist temporarily decreases mushroom seed consumption while increasing spore production of mushrooms. In addition, mushrooms are then not affected by winter. This active ability is enabled using its icon button at the top or the "2" key.', '#fff', '#88f', image_mist, undefined);
+upgrades[upgrade_mistunlock].istreebasedupgrade = true;
 
 var upgrade_sununlock = registerUpgrade('sun ability', treeLevelReqBase(2).mulr(0.05 * 0), function() {
   // nothing to do here, the fact that this upgrade's count is changed to 1 already enables it
@@ -1312,6 +1398,7 @@ var upgrade_sununlock = registerUpgrade('sun ability', treeLevelReqBase(2).mulr(
   }
   return false;
 }, 1, 'While enabled, the sun temporarily increases berry seed production. In addition, berries are then not affected by winter. This active ability is enabled using its icon button at the top or the "1" key.', '#ccf', '#88f', image_sun, undefined);
+upgrades[upgrade_sununlock].istreebasedupgrade = true;
 
 var upgrade_rainbowunlock = registerUpgrade('rainbow ability', treeLevelReqBase(6).mulr(0.05 * 0), function() {
   // nothing to do here, the fact that this upgrade's count is changed to 1 already enables it
@@ -1324,10 +1411,10 @@ var upgrade_rainbowunlock = registerUpgrade('rainbow ability', treeLevelReqBase(
   }
   return false;
 }, 1, 'While enabled, flowers get a boost, and in addition are not affected by winter. This active ability is enabled using its icon button at the top or the "3" key.', '#ccf', '#00f', image_rainbow, undefined);
+upgrades[upgrade_rainbowunlock].istreebasedupgrade = true;
 
 
-
-var choice_text = 'CHOICE upgrade. Disables the other matching choice, choose wisely. '
+var choice_text = 'CHOICE upgrade. Disables the other matching choice, choose wisely. ';
 
 upgrade_register_id = 275;
 
@@ -1343,6 +1430,7 @@ var fern_choice0 = registerChoiceUpgrade('fern choice', treeLevelReqBase(3).mulr
  'Ferns take ' + (fern_wait_minutes + fern_choice0_a_minutes) + ' instead of ' + fern_wait_minutes + ' minutes to appear, but contain enough resources to make up the difference exactly. This allows to collect more fern resources during idle play, but has no effect on the overall fern income during active play. This starts taking effect only for the next fern that appears.',
  'Ferns contain on average ' + (fern_choice0_b_bonus * 100) + '% more resources, but they\'ll appear as often as before so this benefits active play more than idle play. This starts taking effect only for the next fern that appears.',
  '#000', '#fff', images_fern[0], undefined);
+upgrades[fern_choice0].istreebasedupgrade = true;
 
 // pre version 0.1.15
 var fern_choice0_b = registerDeprecatedUpgrade();
@@ -1374,10 +1462,25 @@ var active_choice0 = registerChoiceUpgrade('weather choice', treeLevelReqBase(8)
  'Makes the active weather abilities run twice as long, but also twice as long to recharge. This benefits idle play, but gives on average no benefit for active play.',
  'Increases all active ability weather effects by ' + (active_choice0_b_bonus * 100) + '%. The active abilities recharge time remains the same so this benefits active play more than idle play.',
  '#000', '#fff', image_sun, undefined);
+upgrades[active_choice0].istreebasedupgrade = true;
 
 // pre version 0.1.15
 var active_choice0_b = registerDeprecatedUpgrade();
 
+
+
+upgrade_register_id = 400;
+
+var challengeflowermul_0 = registerBoostMultiplier(challengeflower_0, Res({seeds:1000}).mulr(flower_upgrade_initial_cost), flower_upgrade_power_increase, 1, undefined, flower_upgrade_cost_increase); // aster flower for bee challenge
+
+var challengecropmul_0 = registerBoostMultiplier(challengecrop_0, crops[challengecrop_0].cost.mulr(10), Num(0.5), 1, undefined, 10); // worker bee
+upgrades[challengecropmul_0].description = 'boosts the worker bee boost ' + upgrades[challengecropmul_0].bonus.toPercentString() +  ' (additive)';
+
+var challengecropmul_1 = registerBoostMultiplier(challengecrop_1, crops[challengecrop_1].cost.mulr(10), Num(0.5), 1, undefined, 10); // worker bee
+upgrades[challengecropmul_1].description = 'boosts the queen bee boost ' + upgrades[challengecropmul_1].bonus.toPercentString() +  ' (additive)';
+
+var challengecropmul_2 = registerBoostMultiplier(challengecrop_2, crops[challengecrop_2].cost.mulr(10), Num(0.5), 1, undefined, 10); // worker bee
+upgrades[challengecropmul_2].description = 'boosts the beehive boost ' + upgrades[challengecropmul_2].bonus.toPercentString() +  ' (additive)';
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1452,8 +1555,8 @@ var medal_crowded_id = registerMedal('crowded', 'planted something on every sing
   return state.numfullpermanentcropfields >= state.numw * state.numh - 5;
 }, Num(0.02));
 registerMedal('fern 100', 'clicked 100 ferns', images_fern[0], function() { return state.g_numferns >= 100; }, Num(0.01));
-registerMedal('fern 1000', 'clicked 1000 ferns', images_fern[0], function() { return state.g_numferns >= 1000; }, Num(0.02));
-registerMedal('fern 10000', 'clicked 10000 ferns', images_fern[0], function() { return state.g_numferns >= 10000; }, Num(0.04));
+registerMedal('fern 1000', 'clicked 1000 ferns', images_fern[0], function() { return state.g_numferns >= 1000; }, Num(0.05));
+registerMedal('fern 10000', 'clicked 10000 ferns', images_fern[0], function() { return state.g_numferns >= 10000; }, Num(0.2));
 
 var prevmedal;
 
@@ -1529,11 +1632,27 @@ registerMedal('nettles', 'plant the entire field full of nettles. This is a stin
 }, Num(0.01));
 registerMedal('mistletoes', 'plant the entire field full of mistletoes. You know they only work next to the tree, right?', mistletoe[4], function() {
   return state.croptypecount[CROPTYPE_MISTLETOE] == state.numw * state.numh - 2;
-}, Num(0.01));
+}, Num(0.05));
+registerMedal('not the bees', 'build the entire field full of beehives.', images_beehive[0], function() {
+  return state.croptypecount[CROPTYPE_BEE] == state.numw * state.numh - 2;
+}, Num(0.1));
+registerMedal('unbeelievable', 'fill the entire field with bees and/or beehives during the bees challenge.', images_workerbee[4], function() {
+  var num = state.cropcount[challengecrop_0] + state.fullgrowncropcount[challengecrop_1] + state.fullgrowncropcount[challengecrop_2];
+  return num == state.numw * state.numh - 2;
+}, Num(0.2));
+registerMedal('buzzy', 'fill the entire field with worker bees during the bees challenge.', images_workerbee[4], function() {
+  return state.cropcount[challengecrop_0] == state.numw * state.numh - 2;
+}, Num(0.3));
+registerMedal('royal buzz', 'fill the entire field with queen bees during the bees challenge.', images_queenbee[4], function() {
+  return state.cropcount[challengecrop_1] == state.numw * state.numh - 2;
+}, Num(0.4));
+registerMedal('unbeetable', 'fill the entire field with beehives during the bees challenge.', images_beehive[4], function() {
+  return state.cropcount[challengecrop_2] == state.numw * state.numh - 2;
+}, Num(0.5));
 
 medal_register_id = 125;
 var numreset_achievement_values =   [   1,    5,   10,   20,   50,  100,  200,  500, 1000];
-var numreset_achievement_bonuses =  [0.03, 0.05, 0.07,  0.1, 0.15,  0.2,  0.3,  0.4,  0.5]; // TODO: give a bit more bonus for some of those
+var numreset_achievement_bonuses =  [ 0.1,  0.2,  0.25,  0.3,  0.5,   1,    2,    3,    4];
 for(var i = 0; i < numreset_achievement_values.length; i++) {
   var level = numreset_achievement_values[i];
   var bonus = Num(numreset_achievement_bonuses[i]);
@@ -1556,24 +1675,11 @@ function registerPlantTypeMedal(cropid, num) {
   var num2 = (Math.floor(num / 10) + 1);
   var t = Math.ceil((tier + 1) * Math.log(tier + 1.5));
   var mul = t * num2 / 100 * 0.25;
-  return registerMedal(c.name + ' ' + num, 'have ' + num + ' fullgrown ' + c.name, c.image[4], function() {
-    return state.fullgrowncropcount[cropid] >= num;
+  return registerMedal(c.name + ' ' + num, 'have ' + num + ' ' + c.name, c.image[4], function() {
+    // using non-fullgrown cropcount, so you see the medal appearing when doing the action
+    return state.cropcount[cropid] >= num;
   }, Num(mul));
 };
-
-/*function registerPlantTypeMedal(cropid, num) {
-  var c = crops[cropid];
-  var tier = c.tier;
-  if(c.type == CROPTYPE_MUSH) tier = tier * 2 + 1;
-  if(c.type == CROPTYPE_FLOWER) tier = tier * 2 + 2;
-  if(c.type == CROPTYPE_NETTLE) tier = 3;
-  if(c.type == CROPTYPE_MISTLETOE) tier = 4;
-  var mul = Math.ceil((tier * tier + 1) * 0.1) / 100;
-  return registerMedal(c.name + ' ' + num, 'have ' + num + ' fullgrown ' + c.name, c.image[4], function() {
-    return state.fullgrowncropcount[cropid] >= num;
-  }, Num(mul));
-};*/
-
 
 function registerPlantTypeMedals(cropid) {
   var id0 = registerPlantTypeMedal(cropid, 1);
@@ -1610,6 +1716,8 @@ medal_register_id = 349;
 registerPlantTypeMedals(nettle_0);
 medal_register_id = 359;
 registerPlantTypeMedals(mistletoe_0);
+medal_register_id = 369;
+registerPlantTypeMedals(bee_0);
 
 
 medal_register_id = 400;
@@ -1715,6 +1823,12 @@ registerMedal('higher transcension', 'performed transcension II or higher', unde
   return state.g_treelevel >= 20 && state.treelevel < 20;
 }, Num(0.1));
 
+medal_register_id = 900;
+
+registerMedal('the bees knees', 'completed the bees challenge', images_queenbee[4], function() {
+  return state.challenges[challenge_bees].completed;
+}, Num(0.1));
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1727,6 +1841,13 @@ function Challenge() {
   this.description = 'a';
   this.index = 0;
 
+  this.targetlevel = 0;
+
+  // how much does this challenge contribute to the global challenge bonus pool, per level
+  // e.g. at 0.1, this challenge provides +10% production bonus per tree level reached during this challenge
+  // this is additive for all challenges together.
+  this.bonus = Num(0);
+
   // actual implementation of the challenge is not here, but depends on currently active state.challenge
 };
 
@@ -1736,9 +1857,40 @@ var challenges = []; // indexed by medal index (not necessarily consectuive
 // 0 means no challenge
 var challenge_register_id = 1;
 
-function registerChallenge(name) {
-  return challenge_register_id;
+function registerChallenge(name, targetlevel, bonus, description) {
+  if(challenges[challenge_register_id] || challenge_register_id < 0 || challenge_register_id > 65535) throw 'challenge id already exists or is invalid!';
+
+  var challenge = new Challenge();
+  challenge.index = challenge_register_id++;
+  challenges[challenge.index] = challenge;
+  registered_challenges.push(challenge.index);
+
+  challenge.name = name;
+  challenge.description = description;
+  challenge.targetlevel = targetlevel;
+  challenge.bonus = bonus;
+
+  return challenge.index;
 }
+
+var challenge_bees = 1; // temp disabled
+var challenge_bees = registerChallenge('bee challenge', 10, Num(0.05),
+`The bee challenge has the following rules:<br>
+• The only types of crop available are 1 berry type, 1 mushroom type, 1 flower type and 3 types of bee/beehive. They\'re all available from the beginning, and no others unlock.<br>
+• Beehives boost neighboring queen bees<br>
+• Queen bees boost neighboring worker bees.<br>
+• Worker bees boost the global ecosystem: berries, mushrooms and flowers (so effectively cubic scaling). No neighboring require for this.<br>
+• Worker beest must be next to a flower for their boost to apply, being next to a queen for the queen boost is optional but recommended.<br>
+• "Neighbor" and "next to" mean the 4-neighborhood, so orthogonally touching.<br>
+• The tree does not produce resin, fruits or twigs.<br>
+• Reach tree level 10 or higher for the first time to successfully complete the challenge for the main reward, or still get the generic challenge boost otherwise.<br>
+• The main reward is: beehives available in the regular game from now on after planting daisies. In the main game, beehives boost flowers.<br>
+<br>
+The challenge can be exited early at any time through the tree dialog and replayed later.
+<br><br>
+This challenge has different gameplay than the regular game. The bee types of this challenge don\'t exist in the main game and the beehive in the main game works very differently than the bees in this challenge.
+<br><br>
+`);
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2106,12 +2258,12 @@ var upgrade2_time_reduce_0_amount = 60;
 
 upgrade2_register_id = 25;
 var upgrade2_time_reduce_0 = registerUpgrade2('faster growing', 0, Res({resin:25}), 2, function() {
-}, function(){return true}, 0, 'basic plants grow up to ' + upgrade2_time_reduce_0_amount + ' seconds per upgrade level faster. This is soft-capped for already fast plants, this upgrade has more effect on plants that are slow compared to the upgrade level (e.g. 5+ minute plant for 1 minute upgrade).', undefined, undefined, blackberry[0]);
+}, function(){return true}, 0, 'basic plants grow up to ' + upgrade2_time_reduce_0_amount + ' seconds per upgrade level faster. This is soft-capped for already fast plants, a plant that already only takes 60 seconds, will not get much faster. This improves the higher level slower plants more.', undefined, undefined, blackberry[0]);
 
 var upgrade2_basic_tree_bonus = Num(0.02);
 
 var upgrade2_basic_tree = registerUpgrade2('basic tree boost bonus', 0, Res({resin:10}), 1.5, function() {
-}, function(){return true}, 0, 'add ' + upgrade2_basic_tree_bonus.mulr(100).toString() + '% to the basic tree production bonus per level (additive). For example, if the level 1 basic tree production bonus is normally 5%, it is now 7%, and at tree level 2 it is then 14% instead of 10%', undefined, undefined, tree_images[5][1][1]);
+}, function(){return true}, 0, 'add ' + upgrade2_basic_tree_bonus.toPercentString() + ' to the basic tree production bonus per level (additive). For example, if the level 1 basic tree production bonus is normally 5%, it is now 7%, and at tree level 2 it is then 14% instead of 10%', undefined, undefined, tree_images[5][1][1]);
 
 
 
@@ -2184,7 +2336,7 @@ var FRUIT_NONE = fruit_index++; // 0 means no ability
 var firstFruitAbility = fruit_index;
 var FRUIT_BERRYBOOST = fruit_index++; // boosts seed production of berries
 var FRUIT_MUSHBOOST = fruit_index++; // boosts muchrooms spore production but also seed consumption
-var FRUIT_MUSHEFF = fruit_index++; // decreases seed consumption of mushroom (but same spore production output)
+var FRUIT_MUSHEFF = fruit_index++; // decreases seed consumption of mushroom (but same spore production output) (mushroom ecomony)
 var FRUIT_FLOWERBOOST = fruit_index++;
 var FRUIT_LEECH = fruit_index++;
 var FRUIT_GROWSPEED = fruit_index++;
@@ -2208,7 +2360,7 @@ function getFruitBoost(ability, level, tier) {
   }
   if(ability == FRUIT_MUSHEFF) {
     var amount = towards1(level, 5);
-    var max = 0.3 * (1 + 0.5 * tier / 11);
+    var max = 0.4 * (1 + 0.6 * tier / 11);
     return Num(max * amount);
   }
   if(ability == FRUIT_FLOWERBOOST) {
@@ -2524,3 +2676,19 @@ function getWinterTreeResinBonus() {
 }
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// level = highest tree level reached with this challenge, or hypothetical other level
+function getChallengeBonus(challenge_id, level) {
+  var c = challenges[challenge_id];
+  return c.bonus.mulr(level);
+}
+
+// only during bee challenge
+function getWorkerBeeBonus() {
+  return state.workerbeeboost;
+}

@@ -81,6 +81,11 @@ function encState(state, opt_raw_only) {
   processInt(state.seed0);
   id = 17;
   processInt(state.fern_seed);
+  id = 18;
+  processFloat(state.negative_time);
+  processFloat(state.total_negative_time);
+  processFloat(state.max_negative_time);
+  processFloat(state.last_negative_time);
 
   section = 1; id = 0; // field
   processUint(state.numw);
@@ -258,6 +263,7 @@ function encState(state, opt_raw_only) {
   processFloat(state.g_slowestrun);
   processFloat(state.g_fastestrun2);
   processFloat(state.g_slowestrun2);
+  processUint(state.g_numresets_challenge);
 
 
   section = 11; id = 0; // global run stats
@@ -426,6 +432,38 @@ function encState(state, opt_raw_only) {
 
 
 
+
+
+  section = 19; id = 0; // challenges
+
+  unlocked = [];
+  for(var i = 0; i < registered_challenges.length; i++) {
+    if(state.challenges[registered_challenges[i]].unlocked) unlocked.push(registered_challenges[i]);
+  }
+  array0 = [];
+  array1 = [];
+  array2 = [];
+  array3 = [];
+  array4 = [];
+  prev = 0;
+  for(var i = 0; i < unlocked.length; i++) {
+    if(unlocked[i] - prev < 0) throw 'challenges must be registered in increasing order';
+    array0.push(unlocked[i] - prev);
+    prev = unlocked[i];
+    array1.push(state.challenges[unlocked[i]].completed);
+    array2.push(state.challenges[unlocked[i]].num);
+    array3.push(state.challenges[unlocked[i]].maxlevel);
+    array4.push(state.challenges[unlocked[i]].besttime);
+  }
+  processUintArray(array0);
+  processBoolArray(array1);
+  processUintArray(array2);
+  processUintArray(array3);
+  processFloatArray(array4);
+
+  processUint(state.challenge);
+
+
   var e = encTokens(tokens);
 
   if(opt_raw_only) return e;
@@ -557,6 +595,13 @@ function decState(s) {
     state.fern_seed = Math.floor(Math.random() * 281474976710656);
   }
   if(error) return err(4);
+  id = 18;
+  if(save_version >= 4096*1+30) {
+    state.negative_time = processFloat();
+    state.total_negative_time = processFloat();
+    state.max_negative_time = processFloat();
+    state.last_negative_time = processFloat();
+  }
 
 
   section = 1; id = 0; // field
@@ -757,6 +802,9 @@ function decState(s) {
     state.g_fastestrun2 = processFloat();
     state.g_slowestrun2 = processFloat();
   }
+  if(save_version >= 4096*1+28) {
+    state.g_numresets_challenge = processUint();
+  }
 
   if(error) return err(4);
 
@@ -936,6 +984,35 @@ function decState(s) {
     for(var i = 0; i < array2.length; i++) state.help_disable[array2[i]] = array2[i];
   }
 
+  section = 19; id = 0; // challenges
+  if(save_version >= 4096*1+29) {
+    array0 = processUintArray();
+    array1 = processBoolArray();
+    array2 = processUintArray();
+    array3 = processUintArray();
+    array4 = processFloatArray();
+    if(error) return err(4);
+    if(array0.length != array1.length || array0.length != array2.length || array0.length != array3.length || array0.length != array4.length) {
+      return err(4);
+    }
+    prev = 0;
+    for(var i = 0; i < array0.length; i++) {
+      var index = array0[i] + prev;
+      prev = index;
+      if(!challenges[index]) return err(4);
+      state.challenges[index].unlocked = true;
+      state.challenges[index].completed = array1[i];
+      state.challenges[index].num = array2[i];
+      state.challenges[index].maxlevel = array3[i];
+      state.challenges[index].besttime = array4[i];
+    }
+
+    state.challenge = processUint();
+  }
+
+
+
+  //////////////////////////////////////////////////////////////////////////////
 
   if(save_version <= 4096*1+8) {
     // ethereal upgrades have been refactored, refund all old stuff
@@ -1028,6 +1105,13 @@ function decState(s) {
       state.help_seen_text[9] = 9;
     } else {
       state.help_seen_text[1] = state.help_seen[1] = undefined; // accidently wrote all help_text_seen as 1 due to saving bool true instead of integer
+    }
+  }
+
+  if(save_version < 4096*1+30) {
+    // add this extra research that wasn't unlocked during this challenge to it now, just like game.js does since version 0.1.30
+    if(state.challenge == challenge_bees && !state.upgrades[shortmul_0].unlocked) {
+      state.upgrades[shortmul_0].unlocked = true;
     }
   }
 

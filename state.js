@@ -92,9 +92,10 @@ function MedalState() {
 
 function ChallengeState() {
   this.unlocked = false;
-  this.started = 0; // amount started, whether successful or not
-  this.completed = 0; // amount successfully finished
-  this.maxlevel = 0; // max level reached with this challenge
+  this.completed = false; // whether the challenge was successfully completed at least once (excluding currently ongoing challenge, if any)
+  this.num = 0; // amount of times started, whether successful or not, including the current one
+  this.maxlevel = 0; // max level reached with this challenge (excluding the current ongoing challenge if any)
+  this.besttime = 0; // best time for reaching targetlevel, even when not resetting. If continuing the challenge for higher maxlevel, still only the time to reach targetlevel is counted, so it's the best time for completing the main reward part of the challenge.
 }
 
 
@@ -107,6 +108,28 @@ function State() {
   // everything in the game such work such that no matter if there was 1 tick of 100 seconds, or 100 ticks of 1 second, the result is the same (other than numerical precision possibly), and this too even if many days of duration in between
   // so that saving, and browsers pausing tabs, both have no effect on game
   this.prevtime = 0; // time of previous update frame, in fractional seconds since unix epoch
+
+  /*
+  Compensate for switching between different computers with different clocks: This handles the following scenario:
+  Sombody plays the game in two locations with different computer clock or timezone: this is common (e.g. home and non-home computer): even though javascript returns UTC time so timezones shouldn't matter, it can happen that computers display the correct local time but have the wrong UTC time.
+  This mechanism is not there to prevent computer clock related cheating: that is impossible to prevent in a single player game. But the 2-different-computer-clock situation is legitimate and shouldn't affect the gameplay in a bad (like ferns not spawning for hours) nor in a too good (like big production time delta) way.
+
+  Say location B is 2 hours farther in the future than location A.
+  when moving from A to B, this gives 2 hours of not-actually-deserved production bonus.
+  when moving from B to A, this should in theory punish by taking away 2 hours of production bonus. However, this should not be punished: there are legit situations where this can occur.
+  So the mechanism will work as follows:
+  when moving from B to A, then when loading savegame you see a savegame time in the future. This time difference is added to negative_time.
+  when moving from A to B, then when loading savegame, you see that more than 2 hours have passed. But, before applying the 2 hour produciton bonus, first any negative_time is subtracted from that (only partially if negative_time is even greater than this 2h)
+
+  Side note: other things that must be done when going from B to A (going to the past, negative time delta):
+  -adjust last fern time, such that it won't take hours before a fern appears
+  -similar adjustments for last ability time, etc...
+  */
+  this.negative_time = 0;
+  // total and max negative time ever seen, for debugging in case something goes wrong with this
+  this.total_negative_time = 0;
+  this.max_negative_time = 0;
+  this.last_negative_time = 0;
 
   // current time, this is usually the same as util.getTime(), but if an update() is broken into multiple pieces, then it is
   // the end of the current piece.
@@ -152,6 +175,11 @@ function State() {
   this.medals = [];
   for(var i = 0; i < registered_medals.length; i++) {
     this.medals[registered_medals[i]] = new MedalState();
+  }
+
+  this.challenges = [];
+  for(var i = 0; i < registered_challenges.length; i++) {
+    this.challenges[registered_challenges[i]] = new ChallengeState();
   }
 
   // ethereal field and crops
@@ -205,11 +233,9 @@ function State() {
 
   // challenges
   this.challenge = 0;
-  // the state objects for individual challenges
-  this.challenges = [];
 
   // saved stats, global across all runs
-  this.g_numresets = 0; // amount of soft resets done
+  this.g_numresets = 0; // amount of soft resets done, non-challenge
   this.g_numsaves = 0;
   this.g_numautosaves = 0;
   this.g_numloads = 0;
@@ -231,6 +257,7 @@ function State() {
   this.g_slowestrun = 0; // runtime of slowest transcension
   this.g_fastestrun2 = 0; // as measured on wall clock instead of the runtime that gets deltas added each time
   this.g_slowestrun2 = 0;
+  this.g_numresets_challenge = 0; // amount of soft resets done to start a challenge
 
   this.g_starttime = 0; // starttime of the game (when first run started)
   this.g_runtime = 0; // this would be equal to getTime() - g_starttime if game-time always ran at 1x (it does, except if pause or boosts would exist)
@@ -290,7 +317,7 @@ function State() {
   this.c_numfruitupgrades = 0;
   // WHEN ADDING FIELDS HERE, UPDATE THEM ALSO IN softReset()!
 
-  // progress stats
+  // progress stats, most recent stat at the end
   this.reset_stats_level = []; // reset at what tree level for each reset
   this.reset_stats_level2 = []; // tree level 2 at end of this run
   this.reset_stats_time = []; // time of this run, as integer of 15-minute intervals to keep the stat compact
@@ -321,13 +348,14 @@ function State() {
   // derived stat, not to be saved
   this.cropcount = [];
   this.crop2count = [];
+  this.croptypecount = [];
 
   // amount of fully grown plants of this type planted in fields
   // does not include partially growing ones
   // derived stat, not to be saved
   this.fullgrowncropcount = [];
   this.fullgrowncrop2count = [];
-  this.croptypecount = [];
+  this.fullgrowncroptypecount = [];
 
   // count of non-crop fields, such as fern
   this.specialfieldcount = [];
@@ -369,10 +397,22 @@ function State() {
   this.ethereal_flower_bonus = Num(0);
   this.ethereal_nettle_bonus = Num(0);
 
+  // derived stat, not to be saved.
+  this.challenges_unlocked = 0;
+  this.challenges_completed = 0;
+
   // how many mistletoes are correctly touching the tree
   // computed by precomputeField
   // derived stat, not to be saved.
   this.mistletoes = 0;
+
+  // for bee challenge only, how many worker bees bonus is being applied to the world
+  // derived stat, not to be saved.
+  this.workerbeeboost = Num(0);
+
+  // total production bonus from all challenges
+  // derived stat, not to be saved.
+  this.challenge_bonus = Num(0);
 }
 
 function clearField(state) {
@@ -503,6 +543,7 @@ function computeDerived(state) {
   state.numfullpermanentcropfields = 0;
   state.fullgrowncropcount = [];
   state.cropcount = [];
+  state.fullgrowncroptypecount = [];
   state.croptypecount = [];
   for(var i = 0; i < registered_crops.length; i++) {
     state.cropcount[registered_crops[i]] = 0;
@@ -512,6 +553,7 @@ function computeDerived(state) {
     state.specialfieldcount[i] = 0;
   }
   for(var i = 0; i < NUM_CROPTYPES; i++) {
+    state.fullgrowncroptypecount[i] = 0;
     state.croptypecount[i] = 0;
   }
   for(var y = 0; y < state.numh; y++) {
@@ -521,9 +563,10 @@ function computeDerived(state) {
         var c = f.getCrop();
         state.cropcount[c.index]++;
         state.numcropfields++;
+        state.croptypecount[c.type]++;
         if(f.isFullGrown()) {
           state.fullgrowncropcount[c.index]++;
-          state.croptypecount[c.type]++;
+          state.fullgrowncroptypecount[c.type]++;
           state.numfullgrowncropfields++;
           if(c.type != CROPTYPE_SHORT) state.numfullpermanentcropfields++
         }
@@ -581,7 +624,7 @@ function computeDerived(state) {
     var u2 = upgrades[registered_upgrades[i]];
     if(u.unlocked) {
       state.upgrades_unlocked++;
-      if(!u.seen) state.upgrades_new++;
+      if(!u.seen && !u.count) state.upgrades_new++;
       if(!u2.isExhausted()) {
         state.upgrades_upgradable++; // same as u2.canUpgrade()
         if(u2.getCost().le(state.res)) state.upgrades_affordable++;
@@ -665,6 +708,21 @@ function computeDerived(state) {
   for(var i = 0; i < state.fruit_active.length; i++) state.fruit_active[i].slot = i;
   for(var i = 0; i < state.fruit_stored.length; i++) state.fruit_stored[i].slot = i + 10;
   for(var i = 0; i < state.fruit_sacr.length; i++) state.fruit_sacr[i].slot = i + 20;
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  state.challenges_unlocked = 0;
+  state.challenges_completed = 0;
+  state.challenge_bonus = Num(0);
+  for(var i = 0; i < registered_challenges.length; i++) {
+    var index = registered_challenges[i];
+    var c = state.challenges[index];
+    if(c.unlocked) state.challenges_unlocked++;
+    if(c.completed) state.challenges_completed++;
+    if(c.maxlevel > 0) {
+      state.challenge_bonus.addInPlace(getChallengeBonus(index, c.maxlevel));
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -20,6 +20,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 function getChangeLog() {
   var text = '';
 
+  text += '0.1.30 (2021-02-06):';
+  // achievements for #plants got changed from "when fullgrown" to "when planted" to give faster feedback to your action. But that allows abuse with the refund of growing plant feature.
+  text += '<br/>• Removed the "refund still growing plant" feature since it allowed some achievement related abuse. Use the undo button instead.';
+  text += '<br/>• Tweaked the undo button: min time between saving undo now 10 seconds instead of 1 minute (lose less work when using undo, use export save for longer term things).';
+  // better num-transcension achievement bonuses, better mushroom economy fruit bonus, blackberry secret unlocks blueberry upgrade from start
+  text += '<br/>• Balancing changes (mostly slight buffs).';
+  // not a 100% fix since the game can't get more info than local clock vs what is in savegame, but avoids situations like not having ferns for hours
+  text += '<br/>• Fix issues related to playing on multiple computers with different UTC time set.';
+  text += '<br/>• Various bee challenge bugfixes and tweaks.';
+  text += '<br/>• Mushrooms now try to consume all resources of private berry before berries shared with other mushrooms.';
+  text += '<br/><br/>';
+
+  text += '0.1.29 "Bee update" (2021-02-06):';
+  text += '<br/>• Added the bee challenge, which unlocks when planting a daisy (third tier flower, so it requires significant progress in the game to reach).';
+  text += '<br/>• Added beehives, only available after successfully completing the bee challenge.';
+  text += '<br/>• Since the necessary logic for challenges in general is added to the game for this, more will be added later.';
+  text += '<br/><br/>';
+
+  text += '0.1.28 (2021-02-03):';
+  text += '<br/>• Fixed a bug with the previous runs level/time statistics.';
+  text += '<br/>• Various other UI tweaks and fixes.';
+  text += '<br/>• A larger update (bees) is coming soon, still work in progress.';
+  text += '<br/><br/>';
+
   text += '0.1.27 (2021-01-29):';
   // The cooldown ability caused weird interaction with the timings of the weather and may require too much manual work with swapping in/out the fruit
   text += '<br/>• Changed fruit weather cooldown ability into weather boost.';
@@ -82,7 +106,7 @@ function getChangeLog() {
   text += '<br/>• Fixed bugs related to leeching and transcension II.';
   text += '<br/><br/>';
 
-  text += '0.1.17 "Fruit Update" (2021-01-16):';
+  text += '0.1.17 "Fruit update" (2021-01-16):';
   text += '<br/>• Added fruits.';
   // Because possibly future updates will allow making weather more passive than active, but then there should be a choice between which you have available, all three permanently on is uninteresting.
   text += '<br/>• Only one weather ability can be active at the same time now.';

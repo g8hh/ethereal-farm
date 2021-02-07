@@ -45,7 +45,7 @@ function makePlantChip(crop, x, y, w, parent, fieldx, fieldy) {
   var prod = crop.getProd(f, true);
   if(!prod.empty()) text += '<b>prod:</b>' + prod.toString();
   var boost = crop.getBoost(f);
-  if(boost.neqr(0)) text += '<b>boost:</b>' + boost.mulr(100).toString() + '%';
+  if(boost.neqr(0)) text += '<b>boost:</b>' + boost.toPercentString();
   infoFlex.div.innerHTML = text;
 
   if(state.res.lt(crop.getCost())) {
@@ -112,6 +112,7 @@ function makePlantDialog(x, y, show_only) {
       if(help) {
         result += '.<br>' + help;
       }
+      if(c.tagline) result += '<br/>' + upper(c.tagline);
 
 
       if(c.type == CROPTYPE_SHORT) result += '.<br><br>' + leechInfo;
@@ -122,7 +123,7 @@ function makePlantDialog(x, y, show_only) {
       if(c.type == CROPTYPE_SHORT) {
         result += '.<br><br>Living time: ' + util.formatDuration(c.getPlantTime());
       } else {
-        result += '.<br><br>Growing time: ' + util.formatDuration(c.getPlantTime());
+        result += '.<br><br>Growth time: ' + util.formatDuration(c.getPlantTime());
         if(c.getPlantTime() != c.planttime) result += ' (base: ' + util.formatDuration(c.planttime) + ')';
       }
       result += '.<br><br>Production/sec:' + c.getProd(state.field[y][x], true).toString();
