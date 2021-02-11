@@ -20,6 +20,7 @@ var CROPINDEX = 16;
 var FIELD_TREE_TOP = 1;
 var FIELD_TREE_BOTTOM = 2;
 var FIELD_REMAINDER = 3; // remainder debris of temporary plant. Counts as empty field (same as index == 0) for all purposes. Purely a visual effect, to remember that this is the spot you're using for watercress (and not accidently put a flower there or so)
+var FIELD_ROCK = 4; // for challenges with rocks
 
 // field cell
 function Cell(x, y) {
@@ -92,7 +93,7 @@ function MedalState() {
 
 function ChallengeState() {
   this.unlocked = false;
-  this.completed = false; // whether the challenge was successfully completed at least once (excluding currently ongoing challenge, if any)
+  this.completed = 0; // whether, and how often, the challenge was successfully completed (excluding currently ongoing challenge, if any)
   this.num = 0; // amount of times started, whether successful or not, including the current one
   this.maxlevel = 0; // max level reached with this challenge (excluding the current ongoing challenge if any)
   this.besttime = 0; // best time for reaching targetlevel, even when not resetting. If continuing the challenge for higher maxlevel, still only the time to reach targetlevel is counted, so it's the best time for completing the main reward part of the challenge.
@@ -225,6 +226,7 @@ function State() {
   this.tooltipstyle = 1;
   this.disableHelp = false; // disable all popup help dialogs
   this.uistyle = 1; // 0=default (1), 1=light, 2=dark
+  this.sidepanel = 1; // 0=disabled, 1=automatic
 
   // help dialog related
   this.help_seen = {}; // ever seen this help message at all as dialog
@@ -413,6 +415,10 @@ function State() {
   // total production bonus from all challenges
   // derived stat, not to be saved.
   this.challenge_bonus = Num(0);
+
+  // how many challenges are unlocked but never attempted
+  // derived stat, not to be saved.
+  this.untriedchallenges = 0;
 }
 
 function clearField(state) {
@@ -714,11 +720,13 @@ function computeDerived(state) {
   state.challenges_unlocked = 0;
   state.challenges_completed = 0;
   state.challenge_bonus = Num(0);
+  state.untriedchallenges = 0;
   for(var i = 0; i < registered_challenges.length; i++) {
     var index = registered_challenges[i];
     var c = state.challenges[index];
     if(c.unlocked) state.challenges_unlocked++;
     if(c.completed) state.challenges_completed++;
+    if(c.unlocked && c.num == 0) state.untriedchallenges++;
     if(c.maxlevel > 0) {
       state.challenge_bonus.addInPlace(getChallengeBonus(index, c.maxlevel));
     }
@@ -748,11 +756,11 @@ function Fruit() {
     return tierNames[this.tier] + ' apple';
   };
 
-  this.abilitiesToString = function() {
+  this.abilitiesToString = function(opt_abbreviated) {
     var result = '';
     for(var i = 0; i < this.abilities.length; i++) {
       if(i > 0) result += ', ';
-      result += getFruitAbilityName(this.abilities[i]) + ' ' + util.toRoman(this.levels[i]);
+      result += getFruitAbilityName(this.abilities[i], opt_abbreviated) + ' ' + util.toRoman(this.levels[i]);
     }
     return result;
   };

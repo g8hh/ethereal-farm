@@ -63,14 +63,18 @@ function centerContent(parent, child) {
   child.style.top = Math.floor((ph - ch) / 2) + 'px';
 }
 
+function setAriaLabel(div, label) {
+  div.setAttribute('aria-label', label);
+}
+
 // use this instead of ".onclick = ..." for more accessible buttons
 // opt_label is an optional textual name for image-icon-buttons
 function addButtonAction(div, fun, opt_label) {
   div.onclick = fun;
   div.tabIndex = 0;
-  div.role = 'button';
+  div.setAttribute('role', 'button');
   div.setAttribute('aria-pressed', 'false'); // TODO: is this needed?
-  if(opt_label) div.setAttribute('aria-label', opt_label);
+  if(opt_label) setAriaLabel(div, opt_label);
 }
 
 // styles only a few of the essential properties for button
@@ -165,12 +169,12 @@ function createDialog(opt_size, opt_okfun, opt_okname, opt_cancelname, opt_extra
 
   var dialogFlex;
   if(opt_size == DIALOG_SMALL) {
-    dialogFlex = new Flex(mainFlex, 0.05, 0.25, 0.95, 0.75);
+    dialogFlex = new Flex(gameFlex, 0.05, 0.25, 0.95, 0.75);
   } else if(opt_size == DIALOG_LARGE) {
-    dialogFlex = new Flex(mainFlex, 0.05, 0.05, 0.95, 0.9);
+    dialogFlex = new Flex(gameFlex, 0.05, 0.05, 0.95, 0.9);
   } else {
     // default, medium. Designed to be as big as possible without covering up the resource display
-    dialogFlex = new Flex(mainFlex, 0.05, 0.12, 0.95, 0.9);
+    dialogFlex = new Flex(gameFlex, 0.05, 0.12, 0.95, 0.9);
   }
 
   created_dialogs.push(dialogFlex);
@@ -654,4 +658,20 @@ function getCostAffordTimer(cost) {
   }
 
   return result;
+}
+
+
+// adds scrollbar and shadow effect if needed, otherwise not.
+function makeScrollable(flex) {
+  flex.div.style.overflowY = 'auto';
+
+  // TODO: let this dynamically update if the flex changes size
+  // timeout: ensure the computation happens after text was assigned to the div, ...
+  window.setTimeout(function() {
+    if(flex.div.scrollHeight > flex.div.clientHeight) {
+      flex.div.className = 'efScrollGradient';
+    } else {
+      flex.div.className = '';
+    }
+  });
 }

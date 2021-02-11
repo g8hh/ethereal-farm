@@ -55,7 +55,7 @@ function getTranscendValueInfo(opt_from_challenge) {
     for(var i = 0; i < state.fruit_sacr.length; i++) highestsacr = Math.max(highestsacr, state.fruit_sacr[i].tier);
     if(highestsacr > highest) {
       // fruit of highest tier is in sacrificial pool, indicate this to prevent accidently losing it
-      text += '<font color="#955">→ Warning: you have a fruit in sacrificial pool of higher tier than any active or stored fruit, check the fruit tab if you want to keep it</font><br/>';
+      text += '<span class="efWarningOnDialogText">→ Warning: you have a fruit in sacrificial pool of higher tier than any active or stored fruit, check the fruit tab if you want to keep it</span><br/>';
     }
   }
 
@@ -138,12 +138,56 @@ function createChallengeDescriptionDialog(challenge_id, info_only) {
   titleFlex.div.textEl.innerText = upper(c.name);
 
   var scrollFlex = new Flex(dialog, 0.01, 0.11, 0.99, 0.85, 0.3);
-  scrollFlex.div.style.overflowY = 'scroll';
-  scrollFlex.div.className = 'efScrollBg';
+  makeScrollable(scrollFlex);
 
   var text = '';
-  text += c.description;
+  text += '<b>Challenge info:</b>';
   text += '<br>';
+  text += '• Reach tree level ' + c.targetlevel + ' to successfully complete the challenge and get the one-time main reward';
+  text += '<br>';
+  text += '• The main reward is: ' + c.rewarddescription;
+  text += '<br>';
+  text += '• The challenge can be exited early at any time through the tree dialog and replayed later.';
+  text += '<br>';
+  text += '• Max level reached with this challenge gives a general production bonus to the game, whether successfully completed or not.';
+  text += '<br>';
+  if(c.allowsresin) {
+    if(c.allowbeyondhighestlevel) {
+      text += '• Tree gains resin as usual, but it\'s only available when reaching at least level 10, otherwise it\'s dropped';
+    } else {
+      text += '• Tree gains resin as usual, but it\'s only available when reaching at least level 10, and the tree cannot gain resin when reaching a higher level during the challenge than ever gotten during a regular run';
+    }
+  } else {
+    text += '• Tree does not gain any resin';
+  }
+  text += '<br>';
+  if(c.allowsfruits) {
+    if(c.allowbeyondhighestlevel) {
+      text += '• Tree drops fruits as usual, but the level 5 fruit is dropped at level 10 instead';
+    } else {
+      text += '• Tree drops fruits as usual, but the level 5 fruit is dropped at level 10 instead, and the tree cannot drop fruits when reaching a higher level during the challenge than ever gotten during a regular run';
+    }
+  } else {
+    text += '• Tree does drop any fruits';
+  }
+  text += '<br>';
+  if(c.allowstwigs) {
+    if(c.allowbeyondhighestlevel) {
+      text += '• Twigs can be gained from mistletoes, but only starting at tree level 10';
+    } else {
+      text += '• Twigs can be gained from mistletoes, but only starting at tree level 10 and up to the max level ever reached with a regular run';
+    }
+  } else {
+    text += '• No twigs can be gained from mistletoes';
+  }
+  text += '<br>';
+
+  text += '<br><br>';
+
+  text += '<b>Challenge-specific description:</b>';
+  text += '<br>';
+  text += c.description;
+  text += '<br><br>';
 
   text += '<b>Current stats:</b><br>';
   text += '• Production bonus per max level reached: ' + c.bonus.toPercentString() + '<br>';
@@ -187,11 +231,13 @@ function createChallengeDialog(opt_from_challenge) {
   var pos = 0;
   var h = 0.1;
 
+  // TODO: the display order should be different than the registered order, by difficulty level
   for(var i = 0; i < registered_challenges.length; i++) {
     var c = challenges[registered_challenges[i]];
     var c2 = state.challenges[registered_challenges[i]];
+    if(!c2.unlocked) continue;
     var button = new Flex(buttonFlex, 0.25, pos, 0.75, pos + h);
-    pos += h;
+    pos += h * 1.05;
     styleButton(button.div);
     button.div.textEl.innerText = upper(c.name);
     button.div.onclick = bind(function(c) {
@@ -219,12 +265,8 @@ function createFinishChallengeDialog() {
   if(already_completed) {
     // nothing to display here
   } else if(success) {
-    text += 'You successfully completed the challenge for the first time!';
-
-    if(state.challenge == challenge_bees) {
-      text += '<br><br>';
-      text += 'Challenge reward: beehives unlocked. They are part of the regular game from now on and unlock whenever planting daisies. Beehives boost neighboring flowers in the regular game.';
-    }
+    text += 'You successfully completed the challenge for the first time!<br><br>Reward: ';
+    text += c.rewarddescription;
   } else {
     text += 'You didn\'t successfully complete the challenge, but can still get the challenge bonus for highest tree level reached.';
   }
