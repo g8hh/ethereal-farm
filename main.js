@@ -21,12 +21,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // meaning:
 // -major: 0..63 represents decimal 0.0..6.3, e.g. 1 to set to version 0.1, 10 to set to version 1.0.
 // -minor: 0..4095: increment for any minor features and fixes, e.g. if major has value 1 and this has value 1234, then the version is shown as 0.1.1234
-var version = 4096*1+30;
+var version = 4096*1+33;
+
+// sub-version: if non-0, adds 'b', 'c'. ... to the version name.
+// Should not affect savegame format. No changelog entry needed.
+// Cosmetic changes only. Version name including this part is appended to CSS URL query part to ensure no stale cached CSS file is used.
+var version_sub = 2;
 
 function formatVersion() {
   var a = '' + ((version >> 12) / 10.0);
   if(a.length == 1) a += '.0';
   var b = '' + (version & 4095);
+  if(version_sub == 1) b += 'b';
+  if(version_sub == 2) b += 'c';
+  if(version_sub == 3) b += 'd';
   return a + '.' + b;
 }
 

@@ -18,7 +18,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 
-function getFruitAbilityName(ability) {
+function getFruitAbilityName(ability, opt_abbreviation) {
+  if(opt_abbreviation) {
+    switch(ability) {
+      case FRUIT_BERRYBOOST: return 'B';
+      case FRUIT_MUSHBOOST: return 'M';
+      case FRUIT_MUSHEFF: return 'ME';
+      case FRUIT_FLOWERBOOST: return 'F';
+      case FRUIT_GROWSPEED: return 'G';
+      case FRUIT_WEATHER: return 'WB';
+      case FRUIT_LEECH: return 'WC';
+      case FRUIT_NETTLEBOOST: return 'N';
+    }
+    return '?';
+  }
   switch(ability) {
     case FRUIT_BERRYBOOST: return 'berry boost';
     case FRUIT_MUSHBOOST: return 'mushroom boost';
@@ -27,7 +40,7 @@ function getFruitAbilityName(ability) {
     case FRUIT_GROWSPEED: return 'growing speed';
     case FRUIT_WEATHER: return 'weather boost';
     case FRUIT_LEECH: return 'watercress copying';
-    case FRUIT_FERN: return 'fern';
+    case FRUIT_NETTLEBOOST: return 'nettle boost';
   }
   return 'unknown';
 }
@@ -36,12 +49,12 @@ function getFruitAbilityDescription(ability) {
   switch(ability) {
     case FRUIT_BERRYBOOST: return 'boosts berry production';
     case FRUIT_MUSHBOOST: return 'boosts mushroom production but also consumption';
-    case FRUIT_MUSHEFF: return 'reduces mushroom consumption';
+    case FRUIT_MUSHEFF: return 'reduces mushroom consumption, with diminishing returns';
     case FRUIT_FLOWERBOOST: return 'boosts flowers effect';
     case FRUIT_GROWSPEED: return 'reduces plants growth time';
     case FRUIT_WEATHER: return 'increases the weather effect abilities';
     case FRUIT_LEECH: return 'increases the copy effect of watercress';
-    case FRUIT_FERN: return 'increases the contents of ferns';
+    case FRUIT_NETTLEBOOST: return 'boosts the nettle effect';
   }
   return 'unknown';
 }
@@ -55,9 +68,9 @@ function createFruitHelp() {
   centerText2(titleDiv);
   titleDiv.textEl.innerText = 'Fruit help';
 
-  var div = new Flex(dialog, 0.01, 0.11, 0.99, 0.85, 0.3).div;
-  div.style.overflowY = 'scroll';
-  div.className = 'efScrollBg';
+  var flex = new Flex(dialog, 0.01, 0.11, 0.99, 0.85, 0.3);
+  var div = flex.div;
+  makeScrollable(flex);
 
   var text = '';
 
@@ -142,9 +155,11 @@ function createFruitDialog(f, opt_selected) {
     flexes[i] = flex;
 
     flex.div.style.backgroundColor = '#fff'; // temporary, to make styleButton0 use the filter instead of backgroundColor
+
     styleButton0(flex.div);
+
     addButtonAction(flex.div, bind(function(i) {
-      selected = i;
+      selected = (i == selected) ? -1 : i;
       updateSelected();
     }, i));
   }
@@ -165,6 +180,7 @@ function createFruitDialog(f, opt_selected) {
 
   var updateSelected = function() {
     for(var i = 0; i < flexes.length; i++) {
+      // TODO: integrate ALL THIS with dark/light theming system and the CSS stylesheet
       if(i == selected) {
         flexes[i].div.style.boxShadow = '0px 0px 5px #000';
         flexes[i].div.style.border = '';
@@ -174,7 +190,9 @@ function createFruitDialog(f, opt_selected) {
         flexes[i].div.style.border = '1px solid #000';
         flexes[i].div.style.backgroundColor = '#8d8';
       }
-      flexes[i].div.style.color = '#000';
+      var cost = getFruitAbilityCost(f.abilities[i], f.levels[i], f.tier);
+      var afford = cost.essence.lte(state.res.essence.sub(f.essence));
+      flexes[i].div.style.color = afford ? '#000' : '#797';
     }
 
     if(selected < 0) {

@@ -161,11 +161,21 @@ function hardReset() {
   update();
 }
 
+// use at the start of challenges that only have some specific of their own upgrades, ...
+function lockAllUpgrades() {
+  for(var i = 0; i < registered_upgrades.length; i++) {
+    var u = state.upgrades[registered_upgrades[i]];
+    u.unlocked = false;
+  }
+}
+
 // set up everything for a challenge after softreset
 function startChallenge(challenge_id) {
   if(!challenge_id) return; // nothing to do
 
   if(challenge_id == challenge_bees) {
+    lockAllUpgrades();
+
     state.crops[challengecrop_0].unlocked = true;
     state.crops[challengecrop_1].unlocked = true;
     state.crops[challengecrop_2].unlocked = true;
@@ -173,13 +183,39 @@ function startChallenge(challenge_id) {
     state.crops[mush_0].unlocked = true;
     state.crops[berry_0].unlocked = true;
 
-    state.upgrades[berryunlock_0].unlocked = false;
     state.upgrades[challengecropmul_0].unlocked = true;
     state.upgrades[challengecropmul_1].unlocked = true;
     state.upgrades[challengecropmul_2].unlocked = true;
 
     // add the watercress upgrade as well so one isn't forced to refresh it every minute during this challenge
     state.upgrades[shortmul_0].unlocked = true;
+  }
+
+  if(challenge_id == challenge_rocks) {
+    // use a fixed seed for the random, which changes every 3 hours, and is the same for all players (depends only on the time)
+    // changing the seed only every 4 hours ensures you can't quickly restart the challenge to find a good pattern
+    // making it the same for everyone makes it fair
+    var timeseed = Math.floor(util.getTime() / (3600 * 3));
+    var seed = xor48(timeseed, 0x726f636b73); // ascii for "rocks"
+    var num_rocks = Math.floor(state.numw * state.numh / 3);
+    var array = [];
+    for(var y = 0; y < state.numh; y++) {
+      for(var x = 0; x < state.numw; x++) {
+        var f = state.field[y][x];
+        if(f.index != 0) continue;
+        array.push([x, y]);
+      }
+    }
+    for(var i = 0; i < num_rocks; i++) {
+      if(array.length == 0) break;
+      var roll = getRandomRoll(seed);
+      seed = roll[0];
+      var r = Math.floor(roll[1] * array.length);
+      var x = array[r][0];
+      var y = array[r][1];
+      array.splice(r, 1);
+      state.field[y][x].index = FIELD_ROCK;
+    }
   }
 }
 
@@ -196,7 +232,11 @@ function softReset(opt_challenge) {
     var c2 = state.challenges[state.challenge];
     c2.maxlevel = Math.max(state.treelevel, c2.maxlevel);
     if(c2.maxlevel >= c.targetlevel) {
-      c2.completed = true;
+      if(!c2.completed) {
+        showMessage('Completed the challenge and got reward: ' + c.rewarddescription);
+        c.rewardfun();
+      }
+      c2.completed++;
     }
   }
 
@@ -205,8 +245,11 @@ function softReset(opt_challenge) {
   if(tlevel < 1) tlevel = 1;
   resin = resin.mulr(tlevel);
 
-  var do_fruit = state.treelevel >= min_transcension_level;
-  var do_resin = state.treelevel >= min_transcension_level && (!state.challenge || resin.gtr(0));
+  var do_fruit = true; // sacrifice the fruits even if not above transcension level (e.g. when resetting a challenge)
+  // if false, still sets the upcoming resin to 0!
+  var do_resin = state.treelevel >= min_transcension_level;
+  if(resin.eqr(0)) do_resin = false;
+  if(state.challenge && !challenges[state.challenge].allowsresin) do_resin = false;
 
   var essence = Num(0);
   var message = '';
@@ -351,7 +394,7 @@ function softReset(opt_challenge) {
     state.g_res.addInPlace(essence);
     state.c_res.addInPlace(essence);
     state.fruit_sacr = [];
-    state.fruit_seen = false; // any new fruits are likely sacrificed now, no need to indicate fruit tab in red anymore
+    state.fruit_seen = true; // any new fruits are likely sacrificed now, no need to indicate fruit tab in red anymore
   }
 
   // fix the accidental grow time ethereal upgrade that accidentally gave 7x7 field due to debug code in version 0.1.11
@@ -375,6 +418,7 @@ function softReset(opt_challenge) {
 
   state.fernres = new Res();
   state.fern = false;
+  state.lastFernTime = state.time;
 
   gain = new Res();
 
@@ -603,7 +647,8 @@ function PreCell(f) {
 
   this.leech = Num(0); // how much leech there is on this plant. e.g. if 4 watercress neighbors leech 100% each, this value is 4 (in reality that high is not possible due to the penalty for multiple watercress)
 
-  // breakdown of the production for UI. Is like prod0, but with leech result added. Does not take consumption into account, and shows the negative consumption value of mushroom.
+  // breakdown of the production for UI. Is like prod0, but with leech result added, and also given if still growing.
+  // Does not take consumption into account, and shows the negative consumption value of mushroom.
   this.breakdown = [];
 
   // breakdown of the leech %
@@ -759,10 +804,10 @@ function precomputeField() {
       if(c) {
         var p = prefield[y][x];
         if(c.type == CROPTYPE_FLOWER || c.type == CROPTYPE_NETTLE) {
-          p.boost = c.getBoost(f, p.breakdown);
+          p.boost = c.getBoost(f, p.breakdown); // includes preliminary non-fullgrown case
         }
         if(c.type == CROPTYPE_BEE) {
-          p.boost = c.getBoostBoost(f, p.breakdown);
+          p.boost = c.getBoostBoost(f, p.breakdown); // includes preliminary non-fullgrown case
         }
         if(c.type == CROPTYPE_MISTLETOE) {
           for(var dir = 0; dir < 4; dir++) { // get the neighbors N,E,S,W
@@ -810,6 +855,7 @@ function precomputeField() {
         if(c.type == CROPTYPE_FLOWER || c.type == CROPTYPE_NETTLE || c.type == CROPTYPE_BEE) continue; // don't overwrite their boost breakdown with production breakdown
         var p = prefield[y][x];
         var prod = c.getProd(f, false, p.breakdown);
+        if(!f.isFullGrown()) c.getProd(f, true, p.breakdown); // preliminary breakdown if still growing
         p.prod0 = prod;
         p.prod0b = Res(prod); // a separate copy
         // used by pass 4, production that berry has avaialble for mushrooms, which is then subtarcted from
@@ -1006,6 +1052,17 @@ function precomputeField() {
   }
 };
 
+// xor two 48-bit numbers, given that javascript can only up to 31-bit numbers (plus sign) normally
+function xor48(x, y) {
+  var lowx = x % 16777216;
+  var lowy = y % 16777216;
+  var highx = Math.floor(x / 16777216);
+  var highy = Math.floor(y / 16777216);
+  var lowz = lowx ^ lowy;
+  var highz = highx ^ highy;
+  return lowz + (highz * 16777216);
+}
+
 // returns array of updated seed and the random roll in range [0, 1)
 function getRandomRoll(seed) {
   var mul48 = function(a, b) {
@@ -1061,7 +1118,7 @@ function addRandomFruit() {
 
   var num_abilities = getNumFruitAbilities(tier);
 
-  var abilities = [FRUIT_BERRYBOOST, FRUIT_MUSHBOOST, FRUIT_MUSHEFF, FRUIT_FLOWERBOOST, FRUIT_LEECH, FRUIT_GROWSPEED, FRUIT_WEATHER, FRUIT_FERN];
+  var abilities = [FRUIT_BERRYBOOST, FRUIT_MUSHBOOST, FRUIT_MUSHEFF, FRUIT_FLOWERBOOST, FRUIT_LEECH, FRUIT_GROWSPEED, FRUIT_WEATHER, FRUIT_NETTLEBOOST];
 
   for(var i = 0; i < num_abilities; i++) {
     var roll = Math.floor(getRandomFruitRoll() * abilities.length);
@@ -1139,6 +1196,14 @@ function nextEventTime() {
   return time;
 }
 
+// for misc things in UI that update themselves
+// updatefun must return true if the listener must stay, false if the listener must be removed
+var update_listeners = [];
+function registerUpdateListener(updatefun) {
+  if(update_listeners.length > 50) return;
+  update_listeners.push(updatefun);
+}
+
 var update = function(opt_fromTick) {
   var undostate = undefined;
   if(actions.length > 0 && (util.getTime() - lastUndoSaveTime > minUndoTime)) {
@@ -1192,7 +1257,11 @@ var update = function(opt_fromTick) {
       d = time - prevtime;
 
       // when negative time is registered, then you don't get large time deltas anymore.
-      if(d > 60 && state.negative_time > 0) {
+      // choosing 3000 seconds (something close enough to, but less than, an hour) for this: the most common scenario where negative time happens is switching between two computers
+      // with different UTC time set. That difference will be at least an hour. Optimally the compensation wuold only happen when
+      // loading the savegame on the future computer, where there'll then at leats be an hour of difference. The compensation
+      // should not happen when keeping the game in a background tab for 5 minutes.
+      if(d > 3000 && state.negative_time > 0) {
         var neg = Math.min(state.negative_time, d);
         d -= neg;
         state.negative_time -= neg;
@@ -1249,6 +1318,13 @@ var update = function(opt_fromTick) {
       var action = actions[i];
       var type = action.type;
       if(type == ACTION_UPGRADE) {
+        if(state.upgrades_new) {
+          // applied upgrade, must have been from side panel, do not show upgrade tab in red anymore
+          for(var j = 0; j < registered_upgrades.length; j++) {
+            var u = state.upgrades[registered_upgrades[j]];
+            if(u.unlocked && !u.seen) u.seen = true;
+          }
+        }
         var u = upgrades[action.u];
         var shift = action.shift && (u.maxcount != 1);
         var num = 0;
@@ -1257,8 +1333,8 @@ var update = function(opt_fromTick) {
           var cost = u.getCost();
           if(state.res.lt(cost)) {
             if(!(shift && num > 0)) {
-              showMessage('not enough resources for upgrade: need ' + cost.toString() +
-                  ', have: ' + Res.getMatchingResourcesOnly(cost, state.res).toString(), invalidFG, invalidBG);
+              showMessage('not enough resources for upgrade: have ' + Res.getMatchingResourcesOnly(cost, state.res).toString() +
+                  ', need ' + cost.toString() + ' (' + getCostAffordTimer(cost) + ')', invalidFG, invalidBG);
             }
             break;
           } else if(!u.canUpgrade()) {
@@ -1320,8 +1396,8 @@ var update = function(opt_fromTick) {
         var u = upgrades2[action.u];
         var cost = u.getCost();
         if(state.res.lt(cost)) {
-          showMessage('not enough resources for ethereal upgrade: need ' + cost.toString() +
-              ', have: ' + Res.getMatchingResourcesOnly(cost, state.res).toString(), invalidFG, invalidBG);
+          showMessage('not enough resources for ethereal upgrade: have ' + Res.getMatchingResourcesOnly(cost, state.res).toString() +
+              ', need ' + cost.toString(), invalidFG, invalidBG);
         } else if(!u.canUpgrade()) {
           showMessage('this ethereal upgrade is not currently available', invalidFG, invalidBG);
         } else  {
@@ -1346,8 +1422,11 @@ var update = function(opt_fromTick) {
             showMessage(shiftClickPlantUnset, invalidFG, invalidBG);
           }
         } else if(state.res.lt(cost)) {
-          showMessage('not enough resources to plant ' + c.name + ': need ' + cost.toString() +
-                      ', have: ' + Res.getMatchingResourcesOnly(cost, state.res).toString(), invalidFG, invalidBG);
+          showMessage('not enough resources to plant ' + c.name +
+                      ': have: ' + Res.getMatchingResourcesOnly(cost, state.res).toString() +
+                      ', need ' + cost.toString() +
+                      ' (' + getCostAffordTimer(cost) + ')',
+                      invalidFG, invalidBG);
         } else {
           if(c.type == CROPTYPE_SHORT) {
             state.g_numplantedshort++;
@@ -1387,8 +1466,8 @@ var update = function(opt_fromTick) {
             showMessage(shiftClickPlantUnset, invalidFG, invalidBG);
           }
         } else if(state.res.lt(cost)) {
-          showMessage('not enough resources to plant ' + c.name + ': need ' + cost.toString() +
-                      ', have: ' + Res.getMatchingResourcesOnly(cost, state.res).toString(), invalidFG, invalidBG);
+          showMessage('not enough resources to plant ' + c.name + ': have ' + Res.getMatchingResourcesOnly(cost, state.res).toString() +
+                      ', need: ' + cost.toString(), invalidFG, invalidBG);
         } else {
           showMessage('planted ethereal ' + c.name + '. Consumed: ' + cost.toString() + '. Next costs: ' + c.getCost(1));
           state.g_numplanted2++;
@@ -1410,8 +1489,15 @@ var update = function(opt_fromTick) {
         if(f.hasCrop()) {
           var c = f.getCrop();
           var recoup = c.getCost(-1).mulr(cropRecoup);
-          state.g_numunplanted++;
-          state.c_numunplanted++;
+          if(f.growth < 1 && c.type != CROPTYPE_SHORT) {
+            recoup = c.getCost(-1);
+            if(!action.silent) showMessage('plant was still growing, full refund given', '#f8a');
+            state.g_numplanted--;
+            state.c_numplanted--;
+          } else {
+            state.g_numunplanted++;
+            state.c_numunplanted++;
+          }
           f.index = 0;
           f.growth = 0;
           computeDerived(state); // need to recompute this now to get the correct "recoup" cost of a plant which depends on the derived stat
@@ -1443,9 +1529,15 @@ var update = function(opt_fromTick) {
             state.g_res.subInPlace(remstarter);
             state.c_res.subInPlace(remstarter);
           }
-          state.g_numunplanted2++;
-          if(state.delete2tokens > 0) state.delete2tokens--;
-          showMessage('deleted ethereal ' + c.name + ', got back ' + recoup.toString() + ', used 1 ethereal deletion token, ' + state.delete2tokens + ' tokens left');
+          if(f.growth < 1) {
+            recoup = c.getCost(-1);
+            showMessage('plant was still growing, resin refunded and no delete token used', '#f8a');
+            state.g_numplanted2--;
+          } else {
+            state.g_numunplanted2++;
+            if(state.delete2tokens > 0) state.delete2tokens--;
+            showMessage('deleted ethereal ' + c.name + ', got back ' + recoup.toString() + ', used 1 ethereal deletion token, ' + state.delete2tokens + ' tokens left');
+          }
           f.index = 0;
           f.growth = 0;
           computeDerived(state); // need to recompute this now to get the correct "recoup" cost of a plant which depends on the derived stat
@@ -1644,12 +1736,6 @@ var update = function(opt_fromTick) {
                   state.g_numfullgrown++;
                   state.c_numfullgrown++;
                   // it's ok to ignore the production: the nextEvent function ensures that we'll be roughly at the exact correct time where the transition happens (and the time delta represents the time when it was not yet fullgrown, so no production added)
-
-                  if(c.index == flower_2 && !state.challenges[challenge_bees].unlocked && state.g_numresets > 0) {
-                    state.challenges[challenge_bees].unlocked = true;
-                    showRegisteredHelpDialog(24);
-                    showMessage('Unlocked challenge: ' + upper(challenges[challenge_bees].name));
-                  }
                 }
               }
             } else {
@@ -1698,7 +1784,7 @@ var update = function(opt_fromTick) {
     if(!state.fern && !clickedfern) {
       var progress = state.res.seeds;
       var mintime = 0;
-      if(progress.eqr(0) && gain.empty()) mintime = 0;
+      if(progress.eqr(0) && gain.empty()) mintime = (state.challenge ? 2 : 0);
       else if(progress.ltr(15)) mintime = 3;
       else if(progress.ltr(150)) mintime = 10;
       else if(progress.ltr(1500)) mintime = fern_wait_minutes * 60 / 2;
@@ -1720,12 +1806,6 @@ var update = function(opt_fromTick) {
         if(g.seeds.ltr(2)) g.seeds = Math.max(g.seeds, Num(getRandomFernRoll() * 2 + 1));
         var fernres = new Res({seeds:g.seeds, spores:g.spores});
 
-        var level = getFruitAbility(FRUIT_FERN);
-        if(level > 0) {
-          var mul = Num(1).add(getFruitBoost(FRUIT_FERN, level, getFruitTier()));
-          fernres.mulInPlace(mul);
-        }
-
         state.fernres = fernres;
         state.fern = 1;
         state.fernx = s[0];
@@ -1737,12 +1817,25 @@ var update = function(opt_fromTick) {
     var req = treeLevelReq(state.treelevel + 1);
     if(state.res.ge(req)) {
       var resin = nextTreeLevelResin();
-      var twigs = nextTwigs();
-      actualgain.addInPlace(twigs);
+      var twigs = Res();
+
+      var do_twigs = true;
+      if(state.challenge && !challenges[state.challenge].allowstwigs) do_twigs = false;
+      if(state.challenge && !challenges[state.challenge].allowbeyondhighestlevel && state.treelevel > state.g_treelevel) do_twigs = false;
+
+      if(do_twigs) {
+        twigs = nextTwigs();
+        actualgain.addInPlace(twigs);
+      }
       state.treelevel++;
       state.lasttreeleveluptime = state.time;
       num_tree_levelups++;
-      if(!state.challenge) {
+
+      var do_resin = true;
+      if(state.challenge && !challenges[state.challenge].allowsresin) do_resin = false;
+      if(state.challenge && !challenges[state.challenge].allowbeyondhighestlevel && state.treelevel > state.g_treelevel) do_resin = false;
+
+      if(do_resin) {
         if(getSeason() == 3) {
           showMessage('Winter resin bonus: ' + (getWinterTreeResinBonus().subr(1)).toPercentString());
         }
@@ -1766,27 +1859,28 @@ var update = function(opt_fromTick) {
         showHelpDialog(-13, 'The tree reached level ' + state.treelevel + ' and is providing a choice, see the new upgrade that provides two choices under "upgrades".');
       } else if(state.treelevel == 4) {
         showRegisteredHelpDialog(14);
-      } else if(state.treelevel == 5) {
-        if(!state.challenge) {
-          fruit = addRandomFruit();
-          showRegisteredHelpDialog(2);
-        }
       } else if(state.treelevel == 6) {
         showRegisteredHelpDialog(15);
       } else if(state.treelevel == 8) {
         showHelpDialog(-16, 'The tree reached level ' + state.treelevel + ' and is providing another choice, see the new upgrade that provides two choices under "upgrades".');
-      } else if(state.treelevel == 15) {
-        if(!state.challenge) {
-          fruit = addRandomFruit();
-          showRegisteredHelpDialog(18);
-        }
       } else if(state.treelevel == 20) {
-        showRegisteredHelpDialog(23);
-      } else if(state.treelevel == 25) {
-        if(!state.challenge) {
+        if(!state.challenge) showRegisteredHelpDialog(23);
+      }
+
+      // fruits at tree level 5, 15, 25, 35, ...
+      if(state.treelevel % 10 == 5) {
+        if(!state.challenge || (challenges[state.challenge].allowsfruits && state.treelevel >= 10 && (challenges[state.challenge].allowbeyondhighestlevel || state.treelevel <= state.g_treelevel))) {
+          if(state.treelevel == 5) showRegisteredHelpDialog(2);
+          if(state.treelevel == 15) showRegisteredHelpDialog(18);
           fruit = addRandomFruit();
         }
       }
+      // drop the level 5 fruit during challenges at level 10
+      if(state.treelevel == 10 && state.challenge && challenges[state.challenge].allowsfruits) {
+        fruit = addRandomFruit();
+        showMessage('The tree dropped the level 5 fruit at level 10 during this challenge');
+      }
+
       if(state.treelevel == 1) {
         showRegisteredHelpDialog(6);
       } else if(state.treelevel == min_transcension_level) {
@@ -1845,6 +1939,7 @@ var update = function(opt_fromTick) {
       var u2 = state.upgrades[j];
       if(u2.unlocked) continue;
       if(state.challenge == challenge_bees && !u.istreebasedupgrade) continue;
+      if(j == mistletoeunlock_0 && state.challenge && !challenges[state.challenge].allowstwigs) continue; // mistletoe doesn't work during this challenge
       if(u.pre()) {
         if(u2.unlocked) {
           // the pre function itself already unlocked it, so perhaps it auto applied the upgrade. Nothing to do anymore here other than show a different message.
@@ -1896,6 +1991,20 @@ var update = function(opt_fromTick) {
         if(state.g_nummedals == 1) {
           // TODO: have non intrusive achievement badges instead
           showHelpDialog(-11, 'You got your first achievement! Achievements give a slight production boost. See the "achievements" tab.');
+        }
+      }
+    }
+
+    // check unlocked challenges
+    if(state.g_numresets > 0) { // all challenges require having done at least 1 regular transcension first
+      for(var i = 0; i < registered_challenges.length; i++) {
+        var c = challenges[registered_challenges[i]];
+        var c2 = state.challenges[registered_challenges[i]];
+        if(c2.unlocked) continue;
+        if(c.prefun()) {
+          c2.unlocked = true;
+          showMessage('Unlocked challenge: ' + upper(c.name));
+          showRegisteredHelpDialog(24);
         }
       }
     }
@@ -1977,36 +2086,21 @@ var update = function(opt_fromTick) {
   updateUpgrade2UIIfNeeded();
   updateTabButtons();
   updateAbilitiesUI();
+  updateRightPane();
   if(updatetooltipfun) updatetooltipfun();
   if(updatedialogfun) updatedialogfun();
 
   showLateMessages();
+
+  for(var i = 0; i < update_listeners.length; i++) {
+    if(!update_listeners[i]()) {
+      update_listeners.splice(i, 1);
+      i--;
+    }
+  }
 
   postupdate();
 }
 
 
 
-document.addEventListener('keydown', function(e) {
-  if(e.key == 'w') {
-    var replanted = false;
-    var refreshed = false;
-    for(var y = 0; y < state.numh; y++) {
-      for(var x = 0; x < state.numw; x++) {
-        var f = state.field[y][x];
-        if(f.index == FIELD_REMAINDER) {
-          actions.push({type:ACTION_PLANT, x:x, y:y, crop:crops[short_0], ctrlPlanted:true, silent:true});
-          replanted = true;
-        }
-        if(f.index == CROPINDEX + short_0 && state.res.seeds.gtr(1000)) {
-          actions.push({type:ACTION_DELETE, x:x, y:y, silent:true});
-          actions.push({type:ACTION_PLANT, x:x, y:y, crop:crops[short_0], ctrlPlanted:true, silent:true});
-          refreshed = true;
-        }
-      }
-    }
-    if(replanted) showMessage('replanting watercress');
-    else if(refreshed) showMessage('refreshing watercress');
-    update();
-  }
-});
