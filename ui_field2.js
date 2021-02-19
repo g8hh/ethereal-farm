@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 var field2Divs;
+var field2Rows;
 
 
 
@@ -88,15 +89,15 @@ function makeField2Dialog(x, y) {
 
     var dialog = createDialog();
     dialog.div.className = 'efDialogTranslucent';
-    var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
+    var flex = new Flex(dialog.content, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
     var canvas = createCanvas('0%', '0%', '100%', '100%', flex.div);
     renderImage(c.image[4], canvas);
 
     var buttonshift = 0;
 
-    var flex0 = new Flex(dialog, [0.01, 0.2], [0, 0.01], 1, 0.17, 0.29);
-    var button0 = new Flex(dialog, [0.01, 0.2], [0.6 + buttonshift, 0.01], 0.5, 0.65 + buttonshift, 0.8).div;
-    var button1 = new Flex(dialog, [0.01, 0.2], [0.67 + buttonshift, 0.01], 0.5, 0.72 + buttonshift, 0.8).div;
+    var flex0 = new Flex(dialog.content, [0.01, 0.2], [0, 0.01], 1, 0.17, 0.29);
+    var button0 = new Flex(dialog.content, [0.01, 0.2], [0.7 + buttonshift, 0.01], 0.5, 0.75 + buttonshift, 0.8).div;
+    var button1 = new Flex(dialog.content, [0.01, 0.2], [0.77 + buttonshift, 0.01], 0.5, 0.82 + buttonshift, 0.8).div;
     var last0 = undefined;
 
     styleButton(button0);
@@ -133,7 +134,7 @@ function makeField2Dialog(x, y) {
 
     var dialog = createDialog();
     dialog.div.className = 'efDialogTranslucent';
-    var flex = new Flex(dialog, 0.05, 0.05, 0.95, 0.9, 0.3);
+    var flex = dialog.content;
 
     var text = '<b>Ethereal Tree</b>';
     text += '<br><br>';
@@ -165,6 +166,7 @@ function makeField2Dialog(x, y) {
 }
 
 function initField2UI() {
+  field2Rows = [];
   field2Divs = [];
   for(var y = 0; y < state.numh2; y++) {
     field2Divs[y] = [];
@@ -181,6 +183,9 @@ function initField2UI() {
   var w = field2Div.clientWidth;
   var h = field2Div.clientHeight;
 
+  setAriaRole(field2Grid.div, 'grid'); // intended for 2D navigation, combined with the row and cell roles given to the elements below
+  setAriaLabel(field2Grid.div, 'ethereal field');
+
   var tw = Math.floor(w / state.numw2) - 1;
   var th = Math.floor(h / state.numh2) - 1;
   tw = th = Math.min(tw, th);
@@ -188,15 +193,18 @@ function initField2UI() {
   var y0 = 2;
 
   for(var y = 0; y < state.numh2; y++) {
+    var row = makeDiv('0', (y / state.numh2 * 100) + '%', '100%', (101 / state.numh2) + '%', field2Grid.div);
+    setAriaRole(row, 'row');
+    field2Rows[y] = row;
     for(var x = 0; x < state.numw2; x++) {
       var f = state.field2[y][x];
-      var bgdiv = makeDiv((x / state.numw2 * 100) + '%', (y / state.numh2 * 100) + '%', (101 / state.numw2) + '%', (101 / state.numh2) + '%', field2Grid.div);
-      var fgdiv = makeDiv((x / state.numw2 * 100) + '%', (y / state.numh2 * 100) + '%', (101 / state.numw2) + '%', (101 / state.numh2) + '%', field2Grid.div);
-      var div = makeDiv((x / state.numw2 * 100) + '%', (y / state.numh2 * 100) + '%', (101 / state.numw2) + '%', (101 / state.numh2) + '%', field2Grid.div);
+      var celldiv = makeDiv((x / state.numw2 * 100) + '%', '0', (101 / state.numw2) + '%', '101%', row);
+      var bgcanvas = createCanvas('0%', '0%', '100%', '100%', celldiv); // canvas with the field background image
+      var canvas = createCanvas('0%', '0%', '100%', '100%', celldiv); // canvas for the plant itself
+      var div = makeDiv('0', '0', '100%', '100%', celldiv);
+      setAriaRole(celldiv, 'cell');
       div.style.boxSizing = 'border-box'; // have the border not make the total size bigger, have it go inside
       centerText(div);
-      var bgcanvas = createCanvas('0%', '0%', '100%', '100%', bgdiv); // canvas with the field background image
-      var canvas = createCanvas('0%', '0%', '100%', '100%', fgdiv); // canvas for the plant itself
 
       field2Divs[y][x].div = div;
       field2Divs[y][x].canvas = canvas;

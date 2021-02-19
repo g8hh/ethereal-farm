@@ -139,7 +139,7 @@ function updateResourceUI() {
   resourceDivs[0].style.cursor = 'pointer';
   addButtonAction(resourceDivs[0], function() {
     var dialog = createDialog(DIALOG_MEDIUM);
-    var flex = new Flex(dialog, 0.01, 0.01, 0.99, 0.8, 0.35);
+    var flex = dialog.content;
     var getText = function() {
       var result = '';
       if(state.treelevel > 0) {
@@ -168,6 +168,9 @@ function updateResourceUI() {
       }
       if(s == 2) {
         result += '• +' + getAutumnMushroomBonus().subr(1).toPercentString() + ' bonus to mushroom spores production, without increasing consumption<br>';
+        if(state.upgrades2[upgrade2_mistletoe].count) {
+          result += '• Twigs bonus: ' + getAutumnMistletoeBonus().subr(1).toPercentString() + ' more twigs added when tree levels with mistletoes<br>';
+        }
       }
       if(s == 3) {
         result += '• Harsh conditions: -' + Num(1).sub(getWinterMalus()).toPercentString() + ' berry / mushroom / flower stats when not next to the tree<br>';
@@ -183,7 +186,7 @@ function updateResourceUI() {
     updatedialogfun = function() {
       flex.div.innerHTML = getText();
     };
-  });
+  }, 'info box: time and level');
   registerTooltip(resourceDivs[0], function() {
     var text = '';
     text += 'Season change in: ' + util.formatDuration(timeTilNextSeason(), true) + '.<br>';
@@ -203,6 +206,10 @@ function updateResourceUI() {
       if(index == 2) {
         // resin
         upcoming = state.resin;
+      }
+      if(index == 3) {
+        // twigs
+        upcoming = state.twigs;
       }
       if(index == 7) {
         // essence
@@ -224,17 +231,14 @@ function updateResourceUI() {
 
     text = '';
     if(special) {
-      if(index == 2) {
-        // resin
+      if(index == 2 || index == 3) {
+        // 2=resin, 3=twigs
         var tlevel = Math.floor(state.treelevel / min_transcension_level);
         if(tlevel < 1) tlevel = 1;
         var roman = tlevel > 1 ? (' ' + util.toRoman(tlevel)) : '';
         var tlevel_mul = Num(tlevel);
         var upcoming2 = upcoming.mul(tlevel_mul);
         text = name + '<br>' + res.toString() + '<br>(→ +' + upcoming2.toString() + ')';
-      } else if(index == 3) {
-        // twigs
-        text = name + '<br>' + res.toString();
       } else {
         text = name + '<br>' + res.toString();
         if(upcoming) text += '<br>(→ +' + upcoming.toString() + ')';
@@ -280,6 +284,18 @@ function updateResourceUI() {
         text += 'Amount from next tree level up with the current mistletoes: ' + nextTwigs().toString() + '<br/><br/>';
         text += 'Amount earned during this transcension so far: ' + state.c_res.twigs.toString() + '<br/><br/>';
         text += 'Twigs can be gotten by planting mistletoes next to the basic field tree, and appear when the tree levels up. This does increase the spore requirement for tree level up. More mistletoes gives diminishing returns while still increasing spores as much, so max 1 or 2 mistletoes makes sense.<br/><br/>';
+
+
+        // resin
+        var text = '<b>' + upper(name) + '</b><br/><br/>';
+        text += 'Total resin earned entire game: ' + state.g_res.twigs.toString();
+        text += '<br><br>';
+        text += 'Collected upcoming twigs: ' + upcoming.toString() + '<br>';
+        if(tlevel > 1) {
+          text += '→ Bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x, so total: ' + upcoming2.toString();
+          text += '<br>';
+        }
+
       }
       if(index == 7) {
         // fruit essence
@@ -333,7 +349,7 @@ function updateResourceUI() {
         dialog.div.className = 'efDialogTranslucent';
         // computed here rather than inside of updatedialogfun to avoid it being too slow
         var breakdown = prodBreakdown(index);
-        var flex = new Flex(dialog, 0.01, 0.01, 0.99, 0.8, 0.3);
+        var flex = dialog.content;
         var last = undefined;
         updatedialogfun = bind(function(div, flex) {
           if(div.tooltiptext != last) {
@@ -346,7 +362,7 @@ function updateResourceUI() {
           }
         }, div, flex);
         updatedialogfun();
-      });
+      }, 'info box: ' + name + ' resource');
     }
   };
 

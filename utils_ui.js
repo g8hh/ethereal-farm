@@ -67,26 +67,38 @@ function setAriaLabel(div, label) {
   div.setAttribute('aria-label', label);
 }
 
+
+function setAriaRole(div, role) {
+  div.setAttribute('role', role);
+}
+
 // use this instead of ".onclick = ..." for more accessible buttons
 // opt_label is an optional textual name for image-icon-buttons
 function addButtonAction(div, fun, opt_label) {
   div.onclick = fun;
   div.tabIndex = 0;
-  div.setAttribute('role', 'button');
-  div.setAttribute('aria-pressed', 'false'); // TODO: is this needed?
+  setAriaRole(div, 'button');
+  //div.setAttribute('aria-pressed', 'false'); // TODO: is this needed? maybe it's only for toggle buttons? which addButtonAction is not.
   if(opt_label) setAriaLabel(div, opt_label);
 }
 
 // styles only a few of the essential properties for button
 // does not do centering (can be used for other text position), or colors/borders/....
 // must be called *after* any styles such as backgroundColor have already been set
-function styleButton0(div) {
+// opt_disallow_hover_filter: diallow the mouse hover filter effect. Normally would be nice to always have, but chrome will make pixelated canvases a blurry mess when applying opacity or filter, so disable it for canvases for now.
+function styleButton0(div, opt_disallow_hover_filter) {
   div.style.cursor = 'pointer';
   div.style.userSelect = 'none'; // prevent unwanted selections when double clicking things
   if(div.textEl) div.textEl.style.userSelect = 'none'; // prevent unwanted selections when double clicking things
 
-  util.setEvent(div, 'onmouseover', 'buttonstyle', function() { div.style.filter = 'brightness(0.93)'; });
-  util.setEvent(div, 'onmouseout', 'buttonstyle', function() { div.style.filter = ''; });
+  if(!opt_disallow_hover_filter) {
+    util.setEvent(div, 'onmouseover', 'buttonstyle', function() { div.style.filter = 'brightness(0.93)';});
+    util.setEvent(div, 'onmouseout', 'buttonstyle', function() { div.style.filter = ''; });
+  } else {
+    // as an alternative to the filter, add an invisible border around the canvas, this slightly changes its size, indicating the hover that way
+    util.setEvent(div, 'onmouseover', 'buttonstyle', function() { div.style.border = '1px solid #0000';});
+    util.setEvent(div, 'onmouseout', 'buttonstyle', function() { div.style.border = ''; });
+  }
 }
 
 // somewhat like makeDiv, but gives mouseover/pointer/... styles
@@ -162,6 +174,7 @@ var DIALOG_LARGE = 2;
 // opt_extrafun and opt_extraname allow a third button in addition to cancel and ok. The order will be: cancel, extra, ok.
 // opt_nobgclose: don't close by clicking background or pressing esc, for e.g. savegame recovery dialog
 // opt_onclose, if given, is called no matter what way the dialog closes
+// any content should be put in the resulting dialog.content flex, not in the dialog flex itself
 function createDialog(opt_size, opt_okfun, opt_okname, opt_cancelname, opt_extrafun, opt_extraname, opt_nobgclose, opt_onclose) {
   dialog_level++;
 
@@ -181,6 +194,7 @@ function createDialog(opt_size, opt_okfun, opt_okname, opt_cancelname, opt_extra
   var dialog = dialogFlex.div;
 
   dialog.className = 'efDialog';
+  setAriaRole(dialog, 'dialog');
 
   dialog.style.zIndex = '' + (dialog_level * 10 + 5);
 
@@ -244,6 +258,15 @@ function createDialog(opt_size, opt_okfun, opt_okname, opt_cancelname, opt_extra
   overlay.style.position = 'fixed';
   overlay.style.zIndex = '' + (dialog_level * 10);
   if(!opt_nobgclose) overlay.onclick = dialog.cancelFun;
+
+
+  var xbutton = new Flex(dialogFlex, [1, -0.05], [0, 0.01], [1, -0.01], [0, 0.05], 8);
+  styleButton(xbutton.div);
+  xbutton.div.textEl.innerText = 'x';
+  addButtonAction(xbutton.div, dialog.cancelFun, 'dialog close button');
+
+  dialogFlex.content = new Flex(dialogFlex, 0.01, 0.01, [1, -0.05], 0.88, 0.3);
+
   return dialogFlex;
 }
 
@@ -664,6 +687,7 @@ function getCostAffordTimer(cost) {
 // adds scrollbar and shadow effect if needed, otherwise not.
 function makeScrollable(flex) {
   flex.div.style.overflowY = 'auto';
+  flex.div.style.overflowX = 'hidden';
 
   // TODO: let this dynamically update if the flex changes size
   // timeout: ensure the computation happens after text was assigned to the div, ...

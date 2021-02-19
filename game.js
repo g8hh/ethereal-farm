@@ -240,16 +240,26 @@ function softReset(opt_challenge) {
     }
   }
 
-  var resin = state.resin;
+
   var tlevel = Math.floor(state.treelevel / min_transcension_level);
   if(tlevel < 1) tlevel = 1;
+
+  var resin = state.resin;
   resin = resin.mulr(tlevel);
 
   var do_fruit = true; // sacrifice the fruits even if not above transcension level (e.g. when resetting a challenge)
+
   // if false, still sets the upcoming resin to 0!
   var do_resin = state.treelevel >= min_transcension_level;
   if(resin.eqr(0)) do_resin = false;
   if(state.challenge && !challenges[state.challenge].allowsresin) do_resin = false;
+
+
+  var twigs = state.twigs;
+  twigs = twigs.mulr(tlevel);
+  var do_twigs = state.treelevel >= min_transcension_level;
+  if(twigs.eqr(0)) do_twigs = false;
+  if(state.challenge && !challenges[state.challenge].allowstwigs) do_twigs = false;
 
   var essence = Num(0);
   var message = '';
@@ -264,6 +274,9 @@ function softReset(opt_challenge) {
   }
   if(do_resin) {
     message += ' Got resin: ' + resin.toString();
+  }
+  if(do_twigs) {
+    message += ' Got twigs: ' + twigs.toString();
   }
   if(do_fruit) {
     if(state.fruit_sacr.length) message += '. Sacrificed ' + state.fruit_sacr.length + ' fruits and got ' + essence.toString();
@@ -387,6 +400,11 @@ function softReset(opt_challenge) {
   state.g_resin_from_transcends.addInPlace(resin);
   state.resin = Num(0); // future resin from next tree
 
+
+  state.res.twigs.addInPlace(twigs);
+  state.g_res.twigs.addInPlace(twigs);
+  state.c_res.twigs.addInPlace(twigs);
+  state.twigs = Num(0);
 
   // fruits
   if(do_fruit) {
@@ -1108,6 +1126,7 @@ function getRandomFruitRoll() {
   return roll[1];
 }
 
+
 function addRandomFruit() {
   var level = state.treelevel;
 
@@ -1130,12 +1149,34 @@ function addRandomFruit() {
     fruit.levels.push(level);
   }
 
+  if(getRandomFruitRoll() > 0.75) {
+    fruit.type = 1 + getSeason();
+  }
+
+  if(fruit.type == 1) {
+    fruit.abilities.push(FRUIT_SPRING);
+    fruit.levels.push(1);
+  }
+  if(fruit.type == 2) {
+    fruit.abilities.push(FRUIT_SUMMER);
+    fruit.levels.push(1);
+  }
+  if(fruit.type == 3) {
+    fruit.abilities.push(FRUIT_AUTUMN);
+    fruit.levels.push(1);
+  }
+  if(fruit.type == 4) {
+    fruit.abilities.push(FRUIT_WINTER);
+    fruit.levels.push(1);
+  }
+
+
   if(state.fruit_active.length == 0) {
     setFruit(0, fruit);
   } else if(state.fruit_stored.length < state.fruit_slots) {
     setFruit(10 + state.fruit_stored.length, fruit);
   } else {
-    setFruit(20 + state.fruit_sacr.length, fruit);
+    setFruit(100 + state.fruit_sacr.length, fruit);
   }
 
   state.c_numfruits++;
@@ -1168,17 +1209,19 @@ function unlockEtherealCrop(id) {
 // TODO: tree level-ups must be added here, both ethereal and basic tree, as these affect production boost and resin income
 // TODO: ethereal crops and their plant time must be added here
 function nextEventTime() {
-
+  // next season
   var time = timeTilNextSeason();
 
   var addtime = function(time2) {
     time = Math.min(time, time2);
   };
 
+  // ability times
   if((state.time - state.misttime) < getMistDuration()) addtime(getMistDuration() - state.time + state.misttime);
   if((state.time - state.suntime) < getSunDuration()) addtime(getSunDuration() - state.time + state.suntime);
   if((state.time - state.rainbowtime) < getRainbowDuration()) addtime(getRainbowDuration() - state.time + state.rainbowtime);
 
+  // plants growing / disappearing
   for(var y = 0; y < state.numh; y++) {
     for(var x = 0; x < state.numw; x++) {
       var f = state.field[y][x];
@@ -1192,6 +1235,9 @@ function nextEventTime() {
       }
     }
   }
+
+  // tree level up
+  addtime(treeLevelReq(state.treelevel + 1).spores.sub(state.res.spores).div(gain.spores));
 
   return time;
 }
@@ -1508,6 +1554,10 @@ var update = function(opt_fromTick) {
             if(!action.silent) showMessage('deleted ' + c.name + ', got back: ' + recoup.toString());
           }
           store_undo = true;
+        } else if(f.index == FIELD_REMAINDER) {
+          f.index = 0;
+          f.growth = 0;
+          if(!action.silent) showMessage('cleared watercress remainder');
         }
       } else if(type == ACTION_DELETE2) {
         var f = state.field2[action.y][action.x];
@@ -1619,7 +1669,7 @@ var update = function(opt_fromTick) {
       } else if(type == ACTION_FRUIT_SLOT) {
         var f = action.f;
         var slottype = action.slot; // 0:active, 1:stored, 2:sacrificial
-        var currenttype = ((f.slot < 10) ? 0 : ((f.slot < 20) ? 1 : 2));
+        var currenttype = ((f.slot < 10) ? 0 : ((f.slot < 100) ? 1 : 2));
         if(slottype == currenttype) {
           // nothing to do
         } else if(slottype == 0) {
@@ -1636,7 +1686,7 @@ var update = function(opt_fromTick) {
             setFruit(slot, f);
           }
         } else if(slottype == 2) {
-          var slot = 20 + state.fruit_sacr.length;
+          var slot = 100 + state.fruit_sacr.length;
           setFruit(f.slot, undefined);
           setFruit(slot, f);
         }
@@ -1648,7 +1698,9 @@ var update = function(opt_fromTick) {
         var level = f.levels[index];
         var cost = getFruitAbilityCost(a, level, f.tier).essence;
         var available = state.res.essence.sub(f.essence);
-        if(action.shift) {
+        if(isInherentAbility(a)) {
+          // silently do nothing, is invalid and no UI allows this
+        } else if(action.shift) {
           available.mulrInPlace(0.25); // do not use up ALL essence here, up to 25% only
           var num = 0;
           while(available.gte(cost)) {
@@ -1816,16 +1868,19 @@ var update = function(opt_fromTick) {
 
     var req = treeLevelReq(state.treelevel + 1);
     if(state.res.ge(req)) {
-      var resin = nextTreeLevelResin();
-      var twigs = Res();
+      var resin = Num(0);
+      var twigs = Num(0);
 
       var do_twigs = true;
       if(state.challenge && !challenges[state.challenge].allowstwigs) do_twigs = false;
       if(state.challenge && !challenges[state.challenge].allowbeyondhighestlevel && state.treelevel > state.g_treelevel) do_twigs = false;
 
       if(do_twigs) {
-        twigs = nextTwigs();
-        actualgain.addInPlace(twigs);
+        if(getSeason() == 2) {
+          showMessage('Autumn twigs bonus: ' + (getAutumnMistletoeBonus().subr(1)).toPercentString());
+        }
+        twigs = nextTwigs().twigs;
+        state.twigs.addInPlace(twigs);
       }
       state.treelevel++;
       state.lasttreeleveluptime = state.time;
@@ -1836,6 +1891,7 @@ var update = function(opt_fromTick) {
       if(state.challenge && !challenges[state.challenge].allowbeyondhighestlevel && state.treelevel > state.g_treelevel) do_resin = false;
 
       if(do_resin) {
+        resin = nextTreeLevelResin();
         if(getSeason() == 3) {
           showMessage('Winter resin bonus: ' + (getWinterTreeResinBonus().subr(1)).toPercentString());
         }
@@ -1845,11 +1901,11 @@ var update = function(opt_fromTick) {
       state.g_treelevel = Math.max(state.treelevel, state.g_treelevel);
       var message = 'Tree leveled up to: ' + tree_images[treeLevelIndex(state.treelevel)][0] + ', level ' + state.treelevel +
           '. Consumed: ' + req.toString() +
-          '. Tree boost: ' + getTreeBoost().toPercentString() +
-          '. Resin added: ' + resin.toString() + '. Total resin ready: ' + state.resin.toString();
-      if(!twigs.empty()) message += '. Twigs from mistletoe added: ' + twigs.toString();
+          '. Tree boost: ' + getTreeBoost().toPercentString();
+      if(resin.neqr(0)) message += '. Resin added: ' + resin.toString() + '. Total resin ready: ' + state.resin.toString();
+      if(twigs.neqr(0)) message += '. Twigs from mistletoe added: ' + twigs.toString();
       if(state.treelevel == 9) {
-        message += '. The tree is so close to becoming an adult tree now.';
+        message += '. The tree is almost an adult tree now.';
       }
       showMessage(message, '#2f2');
       var fruit = undefined;

@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
+var fieldRows;
 var fieldDivs;
 
 // works both if it's a breakdown of numbers or of resources
@@ -222,21 +223,25 @@ function makeFieldDialog(x, y) {
 
     var dialog = createDialog();
     dialog.div.className = 'efDialogTranslucent';
-    var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
+
+    var contentFlex = dialog.content;
+    var flex = new Flex(contentFlex, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
     var canvas = createCanvas('0%', '0%', '100%', '100%', flex.div);
     renderImage(c.image[4], canvas);
 
     var buttonshift = 0;
     if(c.type == CROPTYPE_SHORT) buttonshift += 0.2; // the watercress has a long explanation that makes the text go behind the buttons... TODO: have some better system where button is placed after whatever the textsize is
 
-    var flex0 = new Flex(dialog, [0.01, 0.2], [0, 0.01], 1, 0.17, 0.29);
-    var button0 = new Flex(dialog, [0.01, 0.2], [0.4 + buttonshift, 0.01], 0.5, 0.45 + buttonshift, 0.8).div;
-    var button1 = new Flex(dialog, [0.01, 0.2], [0.45 + buttonshift, 0.01], 0.5, 0.5 + buttonshift, 0.8).div;
-    var button2 = new Flex(dialog, [0.01, 0.2], [0.5 + buttonshift, 0.01], 0.5, 0.55 + buttonshift, 0.8).div;
+    var flex0 = new Flex(contentFlex, [0.01, 0.2], [0, 0.01], 1, 0.5, 0.29);
+    var button0 = new Flex(contentFlex, [0.01, 0.2], [0.5 + buttonshift, 0.01], 0.5, 0.55 + buttonshift, 0.8).div;
+    var button1 = new Flex(contentFlex, [0.01, 0.2], [0.55 + buttonshift, 0.01], 0.5, 0.6 + buttonshift, 0.8).div;
+    var button2 = new Flex(contentFlex, [0.01, 0.2], [0.6 + buttonshift, 0.01], 0.5, 0.65 + buttonshift, 0.8).div;
     var last0 = undefined;
 
+    makeScrollable(flex0);
+
     styleButton(button0);
-    button0.textEl.innerText = 'delete';
+    button0.textEl.innerText = 'Delete';
     button0.textEl.style.color = '#800';
     registerTooltip(button0, 'Delete crop and get some of its cost back.');
     addButtonAction(button0, function() {
@@ -246,13 +251,15 @@ function makeFieldDialog(x, y) {
     });
 
     styleButton(button1);
-    button1.textEl.innerText = 'detailed stats / bonuses';
+    button1.textEl.innerText = 'Detailed stats / bonuses';
     registerTooltip(button1, 'Show breakdown of multipliers and bonuses and other detailed stats.');
     addButtonAction(button1, function() {
       var dialog = createDialog(DIALOG_LARGE);
       dialog.div.className = 'efDialogTranslucent';
-      var flex = new Flex(dialog, 0.05, 0.05, 0.95, 0.8, 0.3);
+      var flex = dialog.content;
       var text = '';
+
+      makeScrollable(flex);
 
 
       text += getCropInfoHTML(f, c, true);
@@ -262,8 +269,8 @@ function makeFieldDialog(x, y) {
     });
 
     styleButton(button2);
-    button2.textEl.innerText = 'see unlocked crops';
-    registerTooltip(button2, 'Show the crop dialog with unlocked plants.');
+    button2.textEl.innerText = 'Replace crop';
+    registerTooltip(button2, 'Replace the crop with a new one, sane as delete then plant. Shows the list of unlocked crops.');
     addButtonAction(button2, function() {
       makePlantDialog(x, y, true);
     });
@@ -284,22 +291,28 @@ function makeFieldDialog(x, y) {
 
     var dialog = createDialog();
     dialog.div.className = 'efDialogTranslucent';
-    var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
+
+    var contentFlex = dialog.content;
+    var flex = new Flex(contentFlex, [0, 0.01], [0, 0.01], [0, 0.2], [0, 0.2], 0.3);
     var canvas = createCanvas('0%', '0%', '100%', '100%', flex.div);
     renderImage(tree_images[treeLevelIndex(state.treelevel)][1][getSeason()], canvas);
 
 
-    flex = new Flex(dialog, [0, 0.01], [0, 0.199], [0, 0.2], [0, 0.4], 0.3);
+    flex = new Flex(contentFlex, [0, 0.01], [0, 0.199], [0, 0.2], [0, 0.4], 0.3);
     canvas = createCanvas('0%', '0%', '100%', '100%', flex.div);
     renderImage(tree_images[treeLevelIndex(state.treelevel)][2][getSeason()], canvas);
 
     var ypos = 0;
     var ysize = 0.1;
 
-    var f0 = new Flex(dialog, [0.01, 0.2], [0, 0.01], 0.98, 0.65, 0.3);
+    var f0 = new Flex(contentFlex, [0.01, 0.2], [0, 0.01], 0.98, 0.65, 0.3);
     makeScrollable(f0);
-    var f1 = new Flex(dialog, [0.01, 0.2], 0.7, 1, 0.9, 0.3);
+    var f1 = new Flex(contentFlex, [0.01, 0.2], 0.7, 1, 0.9, 0.3);
     var text;
+
+    var show_resin = !state.challenge || challenges[state.challenge].allowsresin;
+    var show_twigs = !state.challenge || challenges[state.challenge].allowstwigs;
+    var resin_breakdown = [];
 
     text = '<b>' + upper(tree_images[treeLevelIndex(state.treelevel)][0]) + '</b><br/>';
     text += 'Tree level: ' + state.treelevel + '<br/>';
@@ -316,43 +329,59 @@ function makeFieldDialog(x, y) {
       var tlevel = Math.floor(state.treelevel / min_transcension_level);
       var roman = tlevel > 1 ? (' ' + util.toRoman(tlevel)) : '';
       var tlevel_mul = Num(tlevel);
-
-      if(!state.challenge || challenges[state.challenge].allowsresin) {
+      if(tlevel > 1) {
         text += '<br/>';
-        if(tlevel > 1) {
-          text += 'Resin ready (unmultiplied): ' + state.resin.toString();
-        } else {
-          text += 'Resin ready: ' + state.resin.toString();
+        if(show_resin && show_twigs) {
+          text += 'Resin + twigs bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x<br/>';
+        } else if(show_resin) {
+          text += 'Resin bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x<br/>';
+        } else if(show_twigs) {
+          text += 'Twigs bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x<br/>';
         }
-        text += '<br/>';
+      }
+      text += '<br>';
+
+      if(show_resin) {
         if(state.challenge && state.treelevel > state.g_treelevel && !state.challenge.allowbeyondhighestlevel) {
           text += 'No further resin gained during this challenge, higher level than max regular level reached';
         } else {
-          var resin_breakdown = [];
           text += 'Resin added at next tree level: ' + nextTreeLevelResin(resin_breakdown).toString();
-          if(resin_breakdown.length > 1) {
-            text += formatBreakdown(resin_breakdown, false, 'Resin breakdown');
-          }
         }
+
+        text += '<br/>';
         if(tlevel > 1) {
-          text += '<br>';
-          text += 'Resin bonus for Transcension ' + roman + ': ' + tlevel_mul.toString() + 'x<br/>';
-          text += 'Resulting total resin on transcension:<b>' + state.resin.mulr(tlevel_mul).toString() + ' resin</b><br/>';
+          text += 'Total resin ready: ' + state.resin.toString() + ' x ' + tlevel + ' = ' + state.resin.mulr(tlevel_mul).toString();
+        } else {
+          text += 'Total resin ready: ' + state.resin.toString();
         }
+        text += '<br/>';
       } else {
-        text += 'The tree doesn\'t produce resin during this challenge.';
+        text += 'The tree doesn\'t produce resin during this challenge.<br/>';
       }
+      text += '<br/>';
 
 
       if(state.mistletoes > 0) {
-        text += '<br>';
-        var next = nextTwigs();
-        if(state.challenge && state.treelevel < 9) next = Res();
-        text += 'Twigs from mistletoes at next tree level: ' + next.toString() + '.<br>'
-        text += 'Total gotten so far this transcension: ' + state.c_res.twigs.toString() + ' twigs.<br/>';
+        if(show_twigs) {
+          if(state.challenge && state.treelevel > state.g_treelevel && !state.challenge.allowbeyondhighestlevel) {
+            text += 'No further twigs gained during this challenge, higher level than max regular level reached';
+          } else {
+            text += 'Twigs added at next tree level: ' + nextTwigs().twigs.toString();
+          }
+
+          text += '<br>';
+          if(tlevel > 1) {
+            text += 'Total twigs ready: ' + state.twigs.toString() + ' x ' + tlevel + ' = ' + state.twigs.mulr(tlevel_mul).toString();
+          } else {
+            text += 'Total twigs ready: ' + state.twigs.toString();
+          }
+          text += '<br/>';
+        } else {
+          text += 'The tree doesn\'t produce twigs during this challenge.<br/>';
+        }
+        text += '<br/>';
       }
 
-      text += '<br/>';
       text += 'Tree level production boost to crops: ' + (getTreeBoost()).toPercentString() + '<br>';
 
       if(getSeason() == 3) {
@@ -371,6 +400,10 @@ function makeFieldDialog(x, y) {
         if(state.upgrades[upgrade_sununlock].unlocked) text += '• Sun: benefits berries when active<br>';
         if(state.upgrades[upgrade_mistunlock].unlocked) text += '• Mist: benefits mushrooms when active<br>';
         if(state.upgrades[upgrade_rainbowunlock].unlocked) text += '• Rainbow: benefits flowers when active<br>';
+      }
+
+      if(resin_breakdown && resin_breakdown.length > 1) {
+        text += formatBreakdown(resin_breakdown, false, 'Resin gain breakdown');
       }
 
       f0.div.innerHTML = text;
@@ -446,6 +479,7 @@ function makeFieldDialog(x, y) {
 function initFieldUI() {
   fieldFlex.clear();
 
+  fieldRows = [];
   fieldDivs = [];
   for(var y = 0; y < state.numh; y++) {
     fieldDivs[y] = [];
@@ -462,6 +496,9 @@ function initFieldUI() {
   var w = fieldDiv.clientWidth;
   var h = fieldDiv.clientHeight;
 
+  setAriaRole(fieldGrid.div, 'grid'); // intended for 2D navigation, combined with the row and cell roles given to the elements below
+  setAriaLabel(fieldGrid.div, 'basic field');
+
   var tw = Math.floor(w / state.numw) - 1;
   var th = Math.floor(h / state.numh) - 1;
   tw = th = Math.min(tw, th);
@@ -469,17 +506,20 @@ function initFieldUI() {
   var y0 = 2;
 
   for(var y = 0; y < state.numh; y++) {
+    var row = makeDiv('0', (y / state.numh * 100) + '%', '100%', (101 / state.numh) + '%', fieldGrid.div);
+    setAriaRole(row, 'row');
+    fieldRows[y] = row;
     for(var x = 0; x < state.numw; x++) {
       var f = state.field[y][x];
       // the widths are made a tiny bit bigger, to avoid some gridding (1-pixel gaps between field tiles) that can occur for some field sizes otherwise
       var extra = 0.1;
-      var bgdiv = makeDiv((x / state.numw * 100) + '%', (y / state.numh * 100) + '%', (101 / state.numw) + '%', (101 / state.numh) + '%', fieldGrid.div);
-      var fgdiv = makeDiv((x / state.numw * 100) + '%', (y / state.numh * 100) + '%', (101 / state.numw) + '%', (101 / state.numh) + '%', fieldGrid.div);
-      var div = makeDiv((x / state.numw * 100) + '%', (y / state.numh * 100) + '%', (101 / state.numw) + '%', (101 / state.numh) + '%', fieldGrid.div);
+      var celldiv = makeDiv((x / state.numw * 100) + '%', '0', (101 / state.numw) + '%', '101%', row);
+      var bgcanvas = createCanvas('0%', '0%', '100%', '100%', celldiv); // canvas with the field background image
+      var canvas = createCanvas('0%', '0%', '100%', '100%', celldiv); // canvas for the plant itself
+      var div = makeDiv('0', '0', '100%', '100%', celldiv);
+      setAriaRole(celldiv, 'cell');
       div.style.boxSizing = 'border-box'; // have the border not make the total size bigger, have it go inside
       centerText(div);
-      var bgcanvas = createCanvas('0%', '0%', '100%', '100%', bgdiv); // canvas with the field background image
-      var canvas = createCanvas('0%', '0%', '100%', '100%', fgdiv); // canvas for the plant itself
 
       fieldDivs[y][x].div = div;
       fieldDivs[y][x].canvas = canvas;

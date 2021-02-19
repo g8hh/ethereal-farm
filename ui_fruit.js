@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-
+var fruitScrollFlex = undefined;
 
 function getFruitAbilityName(ability, opt_abbreviation) {
   if(opt_abbreviation) {
@@ -41,6 +41,10 @@ function getFruitAbilityName(ability, opt_abbreviation) {
     case FRUIT_WEATHER: return 'weather boost';
     case FRUIT_LEECH: return 'watercress copying';
     case FRUIT_NETTLEBOOST: return 'nettle boost';
+    case FRUIT_SPRING: return 'spring boost';
+    case FRUIT_SUMMER: return 'summer boost';
+    case FRUIT_AUTUMN: return 'autumn boost';
+    case FRUIT_WINTER: return 'winter boost';
   }
   return 'unknown';
 }
@@ -55,6 +59,10 @@ function getFruitAbilityDescription(ability) {
     case FRUIT_WEATHER: return 'increases the weather effect abilities';
     case FRUIT_LEECH: return 'increases the copy effect of watercress';
     case FRUIT_NETTLEBOOST: return 'boosts the nettle effect';
+    case FRUIT_SPRING: return 'boosts the spring flower boost, only during the spring season';
+    case FRUIT_SUMMER: return 'boosts the summer berry boost, only during the summer season';
+    case FRUIT_AUTUMN: return 'boosts the autumn mushroom boost, only during the autumn season';
+    case FRUIT_WINTER: return 'boosts the winter tree warmth effect, only during the winter season';
   }
   return 'unknown';
 }
@@ -64,11 +72,11 @@ var lastTouchedFruit = null; // for some visual indication only
 function createFruitHelp() {
   var dialog = createDialog();
 
-  var titleDiv = new Flex(dialog, 0.01, 0.01, 0.99, 0.1, 0.4).div;
+  var titleDiv = new Flex(dialog.content, 0.01, 0.01, 0.99, 0.1, 0.4).div;
   centerText2(titleDiv);
   titleDiv.textEl.innerText = 'Fruit help';
 
-  var flex = new Flex(dialog, 0.01, 0.11, 0.99, 0.85, 0.3);
+  var flex = new Flex(dialog.content, 0.01, 0.11, 0.99, 1, 0.3);
   var div = flex.div;
   makeScrollable(flex);
 
@@ -94,11 +102,11 @@ function createFruitHelp() {
   text += '<br/><br/>';
   text += 'Fruit related hotkeys:';
   text += '<br/>';
-  text += ' • <b>shift + click fruit</b>: move to sacrificial pool or from sacrificial pool to storage.';
+  text += ' • <b>ctrl + click fruit</b>: move downwards: to storage if available, otherwise to sacrificial pool.';
   text += '<br/>';
-  text += ' • <b>ctrl + click fruit</b>: swap to active slot.';
+  text += ' • <b>shift + click fruit</b>: move upwards: to storage if available, otherwise swap to active slot.';
   text += '<br/>';
-  text += ' • <b>shift + click fruit ability upgrade</b>: buy multiple abilities up to 25% of current available essence';
+  text += ' • <b>shift + click fruit ability upgrade</b>: buy multiple abilities up to 25% of currently available essence';
 
   div.innerHTML = text;
 }
@@ -113,12 +121,12 @@ function createFruitDialog(f, opt_selected) {
   };
   dialog.div.className = 'efDialogTranslucent';
 
-  var canvasFlex = new Flex(dialog, [0, 0.01], [0, 0.01], [0, 0.15], [0, 0.15], 0.3);
+  var canvasFlex = new Flex(dialog.content, [0, 0.01], [0, 0.01], [0, 0.15], [0, 0.15], 0.3);
   var canvas = createCanvas('0%', '0%', '100%', '100%', canvasFlex.div);
-  renderImage(images_apple[f.tier], canvas);
+  renderImage(images_fruittypes[f.type][f.tier], canvas);
   styleFruitChip(canvasFlex, f);
 
-  var topFlex = new Flex(dialog, [0.01, 0.15], 0.01, 0.99, 0.15, 0.3);
+  var topFlex = new Flex(dialog.content, [0.01, 0.15], 0.01, 0.99, 0.15, 0.3);
   var text = upper(f.toString());
   text += '<br>';
   text += 'Tier ' + util.toRoman(f.tier) + ': ' + tierNames[f.tier];
@@ -130,7 +138,7 @@ function createFruitDialog(f, opt_selected) {
   text += 'Get on sacrifice: ' + getFruitSacrifice(f).toString();
   topFlex.div.innerHTML = text;
 
-  var button = new Flex(dialog, [0.01, 0.15], 0.16, 0.3, 0.19, 1.5).div;
+  var button = new Flex(dialog.content, [0.01, 0.15], 0.25, 0.3, 0.3, 1.5).div;
   styleButton(button);
   button.textEl.innerText = 'help';
   addButtonAction(button.textEl, createFruitHelp);
@@ -138,15 +146,17 @@ function createFruitDialog(f, opt_selected) {
   var selected = (opt_selected == undefined) ? (f.abilities.length > 1 ? -1 : 0) : opt_selected; // the selected ability for details and upgrade button
   var flexes = [];
 
-  var y = 0.22;
+  var y = 0.32;
   var h = 0.04;
   for(var i = 0; i < f.abilities.length; i++) {
-    var flex = new Flex(dialog, [0.01, 0.15], y, 0.7, y + h, 0.5);
+    var flex = new Flex(dialog.content, [0.01, 0.15], y, 0.7, y + h, 0.5);
     y += h * 1.1;
     var a = f.abilities[i];
     var level = f.levels[i];
 
-    text = upper(getFruitAbilityName(a)) + ' ' + util.toRoman(level) + ' (' + getFruitBoost(a, level, f.tier).toPercentString() + ')';
+    text = upper(getFruitAbilityName(a));
+    if(!isInherentAbility(a)) text += ' ' + util.toRoman(level);
+    text += ' (' + getFruitBoost(a, level, f.tier).toPercentString() + ')';
 
     flex.div.innerHTML = text;
 
@@ -166,13 +176,13 @@ function createFruitDialog(f, opt_selected) {
 
   y += 0.02;
   h = 0.15;
-  var bottomflex = new Flex(dialog, [0.01, 0.15], y, 0.7, y + h);
+  var bottomflex = new Flex(dialog.content, [0.01, 0.15], y, 0.7, y + h);
   bottomflex.div.style.backgroundColor = '#0f02';
   bottomflex.div.style.border = '1px solid black';
   y += h;
   var textFlex = new Flex(bottomflex, 0.01, 0.0, 0.99, 0.5, 0.4);
   var button = new Flex(bottomflex, 0.01, 0.7, 0.5, 0.95, 0.7).div;
-  //var button = new Flex(dialog, [0.01, 0.15], y, 0.45, y + h / 2, 0.8).div;
+  //var button = new Flex(dialog.content, [0.01, 0.15], y, 0.45, y + h / 2, 0.8).div;
   //y += h;
   styleButton(button);
 
@@ -184,60 +194,78 @@ function createFruitDialog(f, opt_selected) {
       if(i == selected) {
         flexes[i].div.style.boxShadow = '0px 0px 5px #000';
         flexes[i].div.style.border = '';
-        flexes[i].div.style.backgroundColor = '#afa';
+        flexes[i].div.style.backgroundColor = '#8f8';
       } else {
         flexes[i].div.style.boxShadow = '';
         flexes[i].div.style.border = '1px solid #000';
-        flexes[i].div.style.backgroundColor = '#8d8';
+        flexes[i].div.style.backgroundColor = '#6d6';
       }
       var cost = getFruitAbilityCost(f.abilities[i], f.levels[i], f.tier);
       var afford = cost.essence.lte(state.res.essence.sub(f.essence));
-      flexes[i].div.style.color = afford ? '#000' : '#797';
+      var inherent = isInherentAbility(f.abilities[i]);
+      if(inherent) {
+        flexes[i].div.style.color = '#0008';
+        flexes[i].div.style.textShadow = '2px 0 #fff8, 0 2px #fff8';
+      } else {
+        flexes[i].div.style.color = afford ? '#000' : '#797';
+        flexes[i].div.style.textShadow = '';
+      }
     }
 
-    if(selected < 0) {
-      textFlex.div.innerHTML = 'click ability to view or level up';
-      button.style.visibility = 'hidden';
-      return;
-    }
-    button.style.visibility = '';
     var a = f.abilities[selected];
     var level = f.levels[selected];
 
+    if(selected < 0 || isInherentAbility(a)) {
+      textFlex.div.innerHTML = 'click ability to view or level up';
+      button.style.visibility = 'hidden';
+      if(selected < 0) return;
+    } else {
+      button.style.visibility = '';
+    }
+
     y += h;
 
-    text = upper(getFruitAbilityName(a)) + ' ' + util.toRoman(level);
+    text = upper(getFruitAbilityName(a));
+    if(!isInherentAbility(a)) text += ' ' + util.toRoman(level);
     text += '<br>';
     //text += 'Cost to level: ????';
     text += upper(getFruitAbilityDescription(a));
     text += '<br>';
-    text += 'Current level: ' + getFruitBoost(a, level, f.tier).toPercentString();
-    text += '<br>';
-    text += 'Next level: ' + getFruitBoost(a, level + 1, f.tier).toPercentString();
-    textFlex.div.innerHTML = text;
 
 
-    var cost = getFruitAbilityCost(a, level, f.tier);
-    button.textEl.innerText = 'Level up: ' + cost.toString();
-    var available = state.res.essence.sub(f.essence);
-    if(available.lt(cost.essence)) {
-      button.className = 'efButtonCantAfford';
+    if(isInherentAbility(a)) {
+      text += 'Boost: ' + getFruitBoost(a, level, f.tier).toPercentString();
+      text += '<br>';
+      text += '<br>';
+      text += 'This is an inherent fruit ability. It doesn\'t take up a regular ability slot for this fruit tier. It cannot be upgraded.';
     } else {
-      button.className = 'efButton';
+      text += 'Current level: ' + getFruitBoost(a, level, f.tier).toPercentString();
+      text += '<br>';
+      text += 'Next level: ' + getFruitBoost(a, level + 1, f.tier).toPercentString();
+
+      var cost = getFruitAbilityCost(a, level, f.tier);
+      button.textEl.innerText = 'Level up: ' + cost.toString();
+      var available = state.res.essence.sub(f.essence);
+      if(available.lt(cost.essence)) {
+        button.className = 'efButtonCantAfford';
+      } else {
+        button.className = 'efButton';
+      }
+      registerTooltip(button, 'Levels up this ability. Does not permanently use up essence, only for this fruit: all essence can be used in all fruits. Hold shift to level up multiple times but with only up to 25% of available essence');
+      addButtonAction(button, function(e) {
+        actions.push({type:ACTION_FRUIT_LEVEL, f:f, index:selected, shift:e.shiftKey});
+        update();
+        recreate();
+      });
     }
-    registerTooltip(button, 'Levels up this ability. Does not permanently use up essence, only for this fruit: all essence can be used in all fruits. Hold shift to level up multiple times but with only up to 25% of available essence');
-    addButtonAction(button, function(e) {
-      actions.push({type:ACTION_FRUIT_LEVEL, f:f, index:selected, shift:e.shiftKey});
-      update();
-      recreate();
-    });
+    textFlex.div.innerHTML = text;
   };
 
   y += 0.05;
   var h = 0.05;
 
   if(!(f.slot < 10)) {
-    var moveButton1 = new Flex(dialog, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
+    var moveButton1 = new Flex(dialog.content, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
     y += h * 1.1;
     styleButton(moveButton1);
     moveButton1.textEl.innerText = 'to active slot';
@@ -250,12 +278,12 @@ function createFruitDialog(f, opt_selected) {
     });
   }
 
-  if(!(f.slot >= 10 && f.slot < 20)) {
-    var moveButton2 = new Flex(dialog, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
+  if(!(f.slot >= 10 && f.slot < 100)) {
+    var moveButton2 = new Flex(dialog.content, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
     y += h * 1.1;
     styleButton(moveButton2);
     moveButton2.textEl.innerText = 'to storage slot';
-    if(f.slot >= 10 && f.slot < 20) moveButton2.textEl.style.color = '#666';
+    if(f.slot >= 10 && f.slot < 100) moveButton2.textEl.style.color = '#666';
     if(state.fruit_stored.length >= state.fruit_slots) moveButton2.textEl.style.color = '#666';
     addButtonAction(moveButton2, function() {
       actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:1});
@@ -265,12 +293,12 @@ function createFruitDialog(f, opt_selected) {
     });
   }
 
-  if(!(f.slot >= 20)) {
-    var moveButton3 = new Flex(dialog, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
+  if(!(f.slot >= 100)) {
+    var moveButton3 = new Flex(dialog.content, [0.01, 0.15], y, 0.45, y + h, 0.8).div;
     y += h * 1.1;
     styleButton(moveButton3);
     moveButton3.textEl.innerText = 'to sacrificial pool';
-    if(f.slot >= 20) moveButton3.textEl.style.color = '#666';
+    if(f.slot >= 100) moveButton3.textEl.style.color = '#666';
     addButtonAction(moveButton3, function() {
       actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:2});
       update();
@@ -279,7 +307,7 @@ function createFruitDialog(f, opt_selected) {
     });
   }
 
-  styleButton0(canvas);
+  styleButton0(canvas, true);
   addButtonAction(canvas, function() {
     f.mark = ((f.mark || 0) + 1) % 5;
     updateFruitUI();
@@ -292,13 +320,7 @@ function createFruitDialog(f, opt_selected) {
 
 function styleFruitChip(flex, f) {
   var ratio = state.res.essence
-  var power = 0;
-  for(var i = 0; i < f.levels.length; i++) power = Math.max(power, f.levels[i]);
-  power = towards1(power, 20);
-  var hsl = [power * 192, 255, 32, 112];
-  // give fruits with higher level upgrades a slightly different background color, just as a way to distinguish them a bit
-  var color = RGBtoCSS(HSLtoRGB(hsl));
-  flex.div.style.backgroundColor = color;
+  flex.div.style.backgroundColor = tierColors_BG[f.tier] + '8';
   if(f.mark) {
     var color = f.mark == 1 ? '#f008' : (f.mark == 2 ? '#fe08' : (f.mark == 3 ? '#4c48' : '#06c8'));
     flex.div.style.border = '3px solid ' + color;
@@ -312,9 +334,10 @@ function styleFruitChip(flex, f) {
   }
 }
 
-function makeFruitChip(flex, f) {
+// type: 0=active, 1=storage, 2=sacrificial
+function makeFruitChip(flex, f, type) {
   var canvas = createCanvas('0%', '0%', '100%', '100%', flex.div);
-  renderImage(images_apple[f.tier], canvas);
+  renderImage(images_fruittypes[f.type][f.tier], canvas);
 
   var text = upper(f.toString());
   text += ', fruit tier ' + util.toRoman(f.tier);
@@ -322,33 +345,57 @@ function makeFruitChip(flex, f) {
     var a = f.abilities[i];
     var level = f.levels[i];
     text += '<br>';
-    text += 'Ability: ' + upper(getFruitAbilityName(a)) + ' ' + util.toRoman(level) + ' (' + getFruitBoost(a, level, f.tier).toPercentString() + ')';
+    if(isInherentAbility(a)) {
+      text += 'Extra ability: ' + upper(getFruitAbilityName(a)) + ' (' + getFruitBoost(a, level, f.tier).toPercentString() + ')';
+    } else {
+      text += 'Ability: ' + upper(getFruitAbilityName(a)) + ' ' + util.toRoman(level) + ' (' + getFruitBoost(a, level, f.tier).toPercentString() + ')';
+    }
+
   }
+  text += '<br>';
+  text += 'Get on sacrifice: ' + getFruitSacrifice(f).toString();
 
   styleFruitChip(flex, f);
 
   registerTooltip(flex.div, text);
   flex.div.style.userSelect = 'none';
 
+  var typename = (type == 0) ? 'active' : (type == 1 ? 'storage' : 'sacrificial');
+
+  styleButton0(flex.div);
   addButtonAction(flex.div, function(e) {
     if(e.shiftKey) {
-      var slot = 2;
-      if(f.slot >= 20) slot = 1;
-      actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:slot});
-      update();
+      if(f.slot != 0) {
+        // move the fruit upwards
+        var full = state.fruit_stored.length >= state.fruit_slots;
+        var slot = 1;
+        if((f.slot > 0 && f.slot < 100) || full) slot = 0;
+        actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:slot});
+        update();
+      }
     } else if(eventHasCtrlKey(e)) {
-      actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:0});
-      update();
+      if(f.slot < 100) {
+        // move the fruit downwards
+        var full = state.fruit_stored.length >= state.fruit_slots;
+        var slot = 1;
+        if(f.slot > 0 || full) slot = 2;
+        actions.push({type:ACTION_FRUIT_SLOT, f:f, slot:slot});
+        update();
+      }
     } else {
       createFruitDialog(f);
     }
-  }, 'fruit: ' + f.toString());
+  }, typename + ' fruit slot: ' + f.toString());
 }
 
 function updateFruitUI() {
+  var scrollPos = 0;
+  if(fruitScrollFlex) scrollPos = fruitScrollFlex.div.scrollTop;
+
   fruitFlex.clear();
 
   var scrollFlex = new Flex(fruitFlex, 0, 0.01, 1, 1);
+  fruitScrollFlex = scrollFlex;
   scrollFlex.div.style.overflowY = 'scroll';
   scrollFlex.div.style.overflowX = 'visible';
   scrollFlex.div.style.border = '5px solid #ccc';
@@ -373,7 +420,7 @@ function updateFruitUI() {
   y += s;
   canvasFlex.div.style.border = '1px solid black';
   if(state.fruit_active.length) {
-    makeFruitChip(canvasFlex, state.fruit_active[0]);
+    makeFruitChip(canvasFlex, state.fruit_active[0], 0);
   } else {
     canvasFlex.div.style.backgroundColor = '#ccc';
     registerTooltip(canvasFlex.div, 'No active fruit present in this slot. ' + help);
@@ -382,7 +429,7 @@ function updateFruitUI() {
       lastTouchedFruit = null;
       updateFruitUI();
       showMessage('No active fruit present in this slot. ' + help);
-    }, help));
+    }, help), 'empty active fruit slot');
   }
 
   ////////
@@ -401,7 +448,7 @@ function updateFruitUI() {
     canvasFlex.div.style.border = '1px solid black';
     var f = i < state.fruit_stored.length ? state.fruit_stored[i] : undefined;
     if(f) {
-      makeFruitChip(canvasFlex, f);
+      makeFruitChip(canvasFlex, f, 1);
     } else {
       canvasFlex.div.style.backgroundColor = '#ccc';
       registerTooltip(canvasFlex.div, 'No stored fruit present in this slot. ' + help);
@@ -410,7 +457,7 @@ function updateFruitUI() {
         lastTouchedFruit = null;
         updateFruitUI();
         showMessage('No stored fruit present in this slot. ' + help);
-      }, help));
+      }, help), 'empty storage fruit slot');
     }
   }
   y += s;
@@ -435,7 +482,7 @@ function updateFruitUI() {
     canvasFlex.div.style.border = '1px solid black';
     var f = i < state.fruit_sacr.length ? state.fruit_sacr[i] : undefined;
     if(f) {
-      makeFruitChip(canvasFlex, f);
+      makeFruitChip(canvasFlex, f, 2);
     } else {
       if(i == 0) {
         canvasFlex.div.style.border = '1px solid #000';
@@ -457,12 +504,14 @@ function updateFruitUI() {
         lastTouchedFruit = null;
         updateFruitUI();
         showMessage('No fruit present in this sacrificial pool slot. ' + help);
-      }, help));
+      }, help), 'empty sacrificial fruit slot');
     }
   }
   y += s;
 
   ////////
+
+  fruitScrollFlex.div.scrollTop = scrollPos;
 
 }
 
