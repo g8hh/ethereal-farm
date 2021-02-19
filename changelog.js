@@ -20,6 +20,26 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 function getChangeLog() {
   var text = '';
 
+  text += '0.1.36 (2021-02-16):';
+  text += '<br/>• Twigs now receive the 2x, 3x, ... higher transcenscion bonus like resin does.';
+  text += '<br/>• Twigs gain reduced for lower tree levels, but when reaching tree level 20+ this update is a net win.';
+  text += '<br/>• Twigs are now given at transcension rather than immediately.';
+  text += '<br/>• Rocks challenge now also gives twigs.';
+  text += '<br/><br/>';
+
+  text += '0.1.35 (2021-02-14):';
+  text += '<br/>• Added electrum and gold tier fruits. Electrum starts having a chance to drop at level 35.';
+  text += '<br/>• Added seasonal fruits with extra inherent seasonal ability, can drop with lower probability then regular fruits.';
+  text += '<br/><br/>';
+
+  text += '0.1.34 (2021-02-13):';
+  text += '<br/>• Added next higher level crop types for berry, mushroom and flower.';
+  text += '<br/>• Autumn mushroom boost increased, and now also boosts mistletoe twigs.';
+  text += '<br/>• Buffed the ethereal grow speed upgrade.';
+  text += '<br/>• Made more clearly defined colors for the metal tiers (used in medals, fruits, ...).';
+  text += '<br/>• HTML ARIA annotation improvements.';
+  text += '<br/><br/>';
+
   text += '0.1.33 (2021-02-08):';
   text += '<br/>• Some challenges can have tree resin, fruit and/or twigs drop now.';
   text += '<br/>• Side panel upgrade tooltips now also show cost and growtime of the related plant itself.';

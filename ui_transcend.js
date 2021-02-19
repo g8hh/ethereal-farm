@@ -41,6 +41,16 @@ function getTranscendValueInfo(opt_from_challenge) {
     }
   }
 
+  var actual_twigs = state.twigs.mul(tlevel_mul);
+  if(!opt_from_challenge || actual_twigs.neqr(0)) {
+    have_item = true;
+    text += '• ' + actual_twigs.toString() + ' twigs from mistletoes';
+    if(tlevel > 1) {
+      text += ' (' + state.twigs.toString() + ' collected, ' + tlevel_mul.toString() + 'x for Transcension ' + roman + ')';
+    }
+    text += '<br>';
+  }
+
   var do_fruit = state.treelevel >= min_transcension_level;
 
   if(do_fruit) {
@@ -79,7 +89,7 @@ function createTranscendDialog(opt_from_challenge) {
   var roman = tlevel > 1 ? (' ' + util.toRoman(tlevel)) : '';
   var tlevel_mul = Num(tlevel);
 
-  var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [1, -0.01], 0.75, 0.3);
+  var flex = dialog.content;
   var text = '';
   if(opt_from_challenge) {
     text += '<b>New regular run' + '</b><br/>';
@@ -133,11 +143,13 @@ function createChallengeDescriptionDialog(challenge_id, info_only) {
     dialog = createDialog(undefined, okfun, 'start');
   }
 
-  var titleFlex = new Flex(dialog, 0.01, 0.01, 0.99, 0.1, 0.5);
+  var contentFlex = dialog.content;
+
+  var titleFlex = new Flex(contentFlex, 0.01, 0.01, 0.99, 0.1, 0.5);
   centerText2(titleFlex.div);
   titleFlex.div.textEl.innerText = upper(c.name);
 
-  var scrollFlex = new Flex(dialog, 0.01, 0.11, 0.99, 0.85, 0.3);
+  var scrollFlex = new Flex(contentFlex, 0.01, 0.11, 0.99, 1, 0.3);
   makeScrollable(scrollFlex);
 
   var text = '';
@@ -173,9 +185,9 @@ function createChallengeDescriptionDialog(challenge_id, info_only) {
   text += '<br>';
   if(c.allowstwigs) {
     if(c.allowbeyondhighestlevel) {
-      text += '• Twigs can be gained from mistletoes, but only starting at tree level 10';
+      text += '• Twigs can be gained from mistletoes as usual, but they\'re only available when reaching at least level 10, otherwise it\'s dropped';
     } else {
-      text += '• Twigs can be gained from mistletoes, but only starting at tree level 10 and up to the max level ever reached with a regular run';
+      text += '• Twigs can be gained from mistletoes as usual, but they\'re only available when reaching at least level 10, and the tree cannot gain twigs when reaching a higher level during the challenge than ever gotten during a regular run';
     }
   } else {
     text += '• No twigs can be gained from mistletoes';
@@ -207,7 +219,9 @@ function createChallengeDialog(opt_from_challenge) {
 
   dialog.div.className = 'efDialogEthereal';
 
-  var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [1, -0.01], 0.3, 0.3);
+  var contentFlex = dialog.content;
+
+  var flex = new Flex(contentFlex, [0, 0.01], [0, 0.01], [1, -0.01], 0.3, 0.3);
 
   var text = '';
 
@@ -226,7 +240,7 @@ function createChallengeDialog(opt_from_challenge) {
   flex.div.innerHTML = text;
 
 
-  var buttonFlex = new Flex(dialog, 0, 0.3, 1, 0.75, 0.3);
+  var buttonFlex = new Flex(contentFlex, 0, 0.4, 1, 0.9, 0.3);
 
   var pos = 0;
   var h = 0.1;
@@ -248,10 +262,11 @@ function createChallengeDialog(opt_from_challenge) {
 
 function createFinishChallengeDialog() {
   var dialog = createDialog();
-
   dialog.div.className = 'efDialogEthereal';
 
-  var flex = new Flex(dialog, [0, 0.01], [0, 0.01], [1, -0.01], 0.3, 0.3);
+  var contentFlex = dialog.content;
+
+  var flex = new Flex(contentFlex, [0, 0.01], [0, 0.01], [1, -0.01], 0.3, 0.3);
 
   var c = challenges[state.challenge];
   var c2 = state.challenges[state.challenge];
@@ -284,9 +299,9 @@ function createFinishChallengeDialog() {
   text += 'Production bonus from this challenge\'s max reached level (and total from all challenges):<br>';
   text += '• Before: ' + getChallengeBonus(state.challenge, c2.maxlevel).toPercentString() + ' (' + state.challenge_bonus.toPercentString() + ' total for all challenges)<br>';
   if(state.treelevel > c2.maxlevel ) {
-    text += '• New at max level ' + newmax + ': ' + getChallengeBonus(state.challenge, newmax).toPercentString() + ' (' + new_total.toPercentString() + ' total for all challenges)<br>';
+    text += '• After at max level ' + newmax + ': ' + getChallengeBonus(state.challenge, newmax).toPercentString() + ' (' + new_total.toPercentString() + ' total for all challenges)<br>';
   } else {
-    text += '• New stays the same, max level not beaten';
+    text += '• After stays the same, max level not beaten';
   }
 
   text += '<br><br>';
@@ -295,7 +310,7 @@ function createFinishChallengeDialog() {
   flex.div.innerHTML = text;
 
 
-  var buttonflex = new Flex(dialog, 0.25, 0.6, 0.75, 0.8, 0.3);
+  var buttonflex = new Flex(contentFlex, 0.25, 0.6, 0.75, 0.8, 0.3);
 
   var button = new Flex(buttonflex, 0, 0, 1, 0.3, 0.7).div;
   styleButton(button);
