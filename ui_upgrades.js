@@ -68,6 +68,17 @@ function renderUpgradeChip(u, x, y, w, flex, completed) {
       var c = crops[u.cropid];
       infoText += '<hr>';
       infoText += 'Crop info (' + c.name + '):<br><br>';
+
+      if(!c.prod.empty()) {
+        infoText += 'Base production: ' + c.prod.toString() + '<br>';
+        infoText += 'Upgraded production: ' + c.getProd().toString() + '<br>';
+      }
+      if(c.boost.neqr(0)) {
+        infoText += 'Base boost: ' + c.boost.toString() + '<br>';
+        infoText += 'Upgraded boost: ' + (c.type == CROPTYPE_BEE ? c.getBoostBoost() : c.getBoost()).toString() + '<br>';
+      }
+
+
       var cropcost = c.getCost();
       infoText += 'Planting cost: ' + cropcost.toString() + ' (' + getCostAffordTimer(cropcost) + ')<br>';
       if(c.type == CROPTYPE_SHORT) {
@@ -345,9 +356,7 @@ function updateUpgradeUI() {
 
   var scrollFlex = new Flex(upgradeFlex, 0, 0.01, 1, 1);
   upgradeScrollFlex = scrollFlex;
-  scrollFlex.div.style.overflowY = 'scroll';
-  scrollFlex.div.style.overflowX = 'visible';
-  scrollFlex.div.style.border = '5px solid #ccc';
+  makeScrollable(scrollFlex);
 
 
   var titleFlex = new Flex(scrollFlex, 0.01, 0.02, 0.95, 0.15, 0.3);
@@ -417,8 +426,8 @@ function updateUpgradeUI() {
     });
   }
 
-  //upgradeFlex.div.appendChild(scrollFlex.div);
-  //upgradeFlex.update();
+  //appearance of scrollbar can shift positions of some flexes, causing some boxes to shift, hence update entire flex again
+  scrollFlex.update();
 
   upgradeScrollFlex.div.scrollTop = scrollPos;
 

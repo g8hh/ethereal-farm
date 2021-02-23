@@ -2177,16 +2177,16 @@ subtleplantimageheader + `
 ................
 ................
 ......ooo.......
-...o.oo.oooooo..
-..ooo...ooo..o..
-..o.ooooo.o..o..
-.oo..o.o.o..o...
-.o...oo..o..o...
-.oo.oooo.o.o....
-...ooo...ooo....
-.....o..o.o.....
-.....o...o......
-.....oooo.......
+...o.oo.ooxxxo..
+..ooo...oxo..x..
+..o.oooox.x..x..
+.oo..o.x.x..x...
+.o...ox..x..x...
+.oo.oxoo.x.x....
+...oox...xxx....
+.....x..x.x.....
+.....x...x......
+.....xxxx.......
 ................
 ................
 `,
@@ -2194,18 +2194,18 @@ subtleplantimageheader + `
 ................
 .....oo.........
 ....o..oo.......
-....o...oooooo..
-....o....o...oo.
-.....o.ooo....o.
-..oo.ooo.o....o.
-...ooo.ooo..oo..
-..ooo...oo.o....
-..o.o..ooo.o....
-..oooo.o.oooo...
-...oo.....o.oo..
-....o..oooo..oo.
-....ooo.....oo..
-.......ooooo....
+....o...ooxxxx..
+....o....o...xx.
+.....o.ooo....x.
+..oo.ooo.o....x.
+...ooo.ooo..xx..
+..ooo...oo.x....
+..o.o..xxo.x....
+..oooo.x.xxxx...
+...oo.....x.xx..
+....o..xxxx..xx.
+....ooo.....xx..
+.......xxxxx....
 ................
 `,
 subtleplantimageheader + `
@@ -2214,16 +2214,16 @@ subtleplantimageheader + `
 ....o..HH....##.
 ....o...ooooo#H.
 ...#o....##..HH.
-..#H.o.oo#H.##o.
-..HH.ooo.oH.#Ho.
-..#ooo.ooo..oo..
-.#Hoo...oo.o.o..
-.HH.o..ooo.o.o..
-..ooo##o.ooooo..
-.#Hoo#H...o#oo#.
-.HH.oHHooo#H.#H.
-....ooo...HHoH..
-.......ooooo....
+..#H.o.oo#H.##x.
+..HH.ooo.xH.#Hx.
+..#ooo.oxo..xx..
+.#Hoo...xo.x.x..
+.HH.o..xxo.x.x..
+..ooo##x.oxxox..
+.#Hoo#H...x#xx#.
+.HH.oHHxxx#H.#H.
+....ooo...HHxH..
+.......xxxxx....
 ................
 `,
 subtleplantimageheader + `
@@ -2232,16 +2232,16 @@ subtleplantimageheader + `
 ....#H.HH.#H.##.
 ....HH..ooHHo#H.
 ...#o....##..HH.
-..#H.o##o#H.##o.
-..HH.o#H.oH.#Ho.
-..#ooo#oo#..oo..
-.#Hoo...#HHo.o#.
-.HH.o..#Ho.o.o#H
-..ooo##HHooooHHH
-.#Hoo#H...o#oo#.
-.HH.oHHooo#H.#H.
-....ooo##.HHoH..
-.......#Hooo....
+..#H.o##o#H.##x.
+..HH.o#H.oH.#Hx.
+..#ooo#oo#..ox..
+.#Hoo...#HHx.x#.
+.HH.o..#Ho.x.x#H
+..ooo##HHooxoHHH
+.#Hoo#H...x#xx#.
+.HH.oHHxxx#H.#H.
+....ooo##.HHxH..
+.......#Hxxx....
 .......HH.......
 `);
 
@@ -2643,3 +2643,40 @@ var image_fern_as_crop = createPlantImages2(seeds_nettle,
 '#hg:#08ff' + fern_base_image);
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+var image_automaton = `
+................
+.....646535.....
+.....646o3o.....
+.....666ooo.....
+.66666oo544oo64.
+.644666o5o4o664.
+.64.66oo544oo64.
+.64.2626ooo4.64.
+.62.2266o4o4.64.
+.64266225444.64.
+.62266265444.64.
+....22625444....
+...262665444....
+....664..664....
+....664..664....
+....664..664....`;
+
+
+var images_automaton = createPlantImages2(
+  image_automaton,
+  image_automaton,
+  image_automaton,
+  image_automaton,
+  image_automaton
+);
