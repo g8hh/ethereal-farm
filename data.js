@@ -954,9 +954,9 @@ crop_register_id = 75;
 var flower_0 = registerFlower('clover', 0, Num(0.5), flowerplanttime0, clover);
 var flower_1 = registerFlower('cornflower', 1, Num(8.0), flowerplanttime0 * 3, cornflower);
 var flower_2 = registerFlower('daisy', 2, Num(128.0), flowerplanttime0 * 6, daisy);
-var flower_3 = registerFlower('dandelion', 3, Num(1024.0), flowerplanttime0 * 9, dandelion);
-var flower_4 = registerFlower('iris', 4, Num(8192.0), flowerplanttime0 * 12, iris);
-// ideas for more flowers: (forget me not), iris, lavender, orchid, sunflower, tulip, violet
+var flower_3 = registerFlower('dandelion', 3, Num(2048.0), flowerplanttime0 * 9, dandelion);
+var flower_4 = registerFlower('iris', 4, Num(32768.0), flowerplanttime0 * 12, iris);
+// ideas for more flowers: (forget me not), lavender, orchid, sunflower, tulip, violet
 
 crop_register_id = 100;
 var nettle_0 = registerNettle('nettle', 0, Num(4), berryplanttime0, nettle);
@@ -1106,6 +1106,10 @@ function registerUpgrade(name, cost, fun, pre, maxcount, description, bgcolor, b
     } else {
       state.upgrades[this.index].count++;
     }
+    // ensure it's also marked as unlocked. Most upgrades are unlocked before you can apply them, but in some cases like
+    // auto-unlocked ones for challenges, blackberry secret, ... that may not be so.
+    // and: upgrades are only saved in the savegame when unlocked, so must be set now or its count won't be saved
+    state.upgrades[this.index].unlocked = true;
     fun();
   };
 
@@ -1126,8 +1130,8 @@ function registerCropUnlock(cropid, cost, prev_crop_num, prev_crop, opt_pre_fun)
   var index = upgrade_register_id;
 
   var fun = function() {
-    if(cropid == flower_0) showMessage('You unlocked the first type of flower! Flowers don\'t produce resources directly, but boost neighboring plants.', helpFG, helpBG);
-    if(cropid == mushunlock_0) showMessage('You unlocked the first type of mushroom! Mushrooms produce spores rather than seeds, and spores will be used by the tree.', helpFG, helpBG);
+    if(cropid == flower_0) showMessage('You unlocked the first type of flower! Flowers don\'t produce resources directly, but boost neighboring plants.', C_HELP, 456645);
+    if(cropid == mushunlock_0) showMessage('You unlocked the first type of mushroom! Mushrooms produce spores rather than seeds, and spores will be used by the tree.', C_HELP, 8932);
     state.crops[crop.index].unlocked = true;
   };
 
@@ -1281,7 +1285,7 @@ function registerShortCropTimeIncrease(cropid, cost, time_increase, prev_crop_nu
 }
 
 // an upgrade that increases the multiplier of a crop
-function registerChoiceUpgrade(name, cost, pre, fun, name_a, name_b, description_a, description_b, bgcolor, bordercolor, image0, image1) {
+function registerChoiceUpgrade(name, pre, fun, name_a, name_b, description_a, description_b, bgcolor, bordercolor, image0, image1) {
   // the index this new upgrade will get
   var index = upgrade_register_id;
 
@@ -1289,7 +1293,7 @@ function registerChoiceUpgrade(name, cost, pre, fun, name_a, name_b, description
 
   var description = 'Choice upgrade, pick one of the two proposed effects. Choose wisely. <br><br><b>' + name_a + '</b>:<br>' + description_a + '<br><br><b>' + name_b + '</b>:<br>' + description_b;
 
-  var result = registerUpgrade(name, cost, fun, pre, maxcount, description, bgcolor, bordercolor, image0, image1);
+  var result = registerUpgrade(name, Res(), fun, pre, maxcount, description, bgcolor, bordercolor, image0, image1);
   var u = upgrades[result];
   u.is_choice = true;
   u.choicename_a = name_a;
@@ -1322,17 +1326,17 @@ var berryunlock_10 = registerCropUnlock(berry_10, getBerryCost(10), 1, berry_9);
 
 upgrade_register_id = 50;
 var mushunlock_0 = registerCropUnlock(mush_0, getMushroomCost(0), 1, berry_1);
-var mushunlock_1 = registerCropUnlock(mush_1, getMushroomCost(1), 1, berry_3);
-var mushunlock_2 = registerCropUnlock(mush_2, getMushroomCost(2), 1, berry_5);
-var mushunlock_3 = registerCropUnlock(mush_3, getMushroomCost(3), 1, berry_7);
-var mushunlock_4 = registerCropUnlock(mush_4, getMushroomCost(4), 1, berry_9);
+var mushunlock_1 = registerCropUnlock(mush_1, getMushroomCost(1), 1, berry_3, function(){return !!state.upgrades[mushunlock_0].count;});
+var mushunlock_2 = registerCropUnlock(mush_2, getMushroomCost(2), 1, berry_5, function(){return !!state.upgrades[mushunlock_1].count;});
+var mushunlock_3 = registerCropUnlock(mush_3, getMushroomCost(3), 1, berry_7, function(){return !!state.upgrades[mushunlock_2].count;});
+var mushunlock_4 = registerCropUnlock(mush_4, getMushroomCost(4), 1, berry_9, function(){return !!state.upgrades[mushunlock_3].count;});
 
 upgrade_register_id = 75;
 var flowerunlock_0 = registerCropUnlock(flower_0, getFlowerCost(0), 1, berry_2);
-var flowerunlock_1 = registerCropUnlock(flower_1, getFlowerCost(1), 1, berry_4);
-var flowerunlock_2 = registerCropUnlock(flower_2, getFlowerCost(2), 1, berry_6);
-var flowerunlock_3 = registerCropUnlock(flower_3, getFlowerCost(3), 1, berry_8);
-var flowerunlock_4 = registerCropUnlock(flower_4, getFlowerCost(4), 1, berry_10);
+var flowerunlock_1 = registerCropUnlock(flower_1, getFlowerCost(1), 1, berry_4, function(){return !!state.upgrades[flowerunlock_0].count;});
+var flowerunlock_2 = registerCropUnlock(flower_2, getFlowerCost(2), 1, berry_6, function(){return !!state.upgrades[flowerunlock_1].count;});
+var flowerunlock_3 = registerCropUnlock(flower_3, getFlowerCost(3), 1, berry_8, function(){return !!state.upgrades[flowerunlock_2].count;});
+var flowerunlock_4 = registerCropUnlock(flower_4, getFlowerCost(4), 1, berry_10, function(){return !!state.upgrades[flowerunlock_3].count;});
 
 upgrade_register_id = 100;
 var nettleunlock_0 = registerCropUnlock(nettle_0, getNettleCost(0), 1, mush_1);
@@ -1452,7 +1456,7 @@ upgrade_register_id = 275;
 var fern_choice0_a_minutes = 7;
 var fern_choice0_b_bonus = 0.25;
 
-var fern_choice0 = registerChoiceUpgrade('fern choice', treeLevelReqBase(3).mulr(0.05),
+var fern_choice0 = registerChoiceUpgrade('fern choice',
   function() {
     return state.treelevel >= 3;
   }, function() {
@@ -1478,7 +1482,7 @@ var rainbow_choice0_b = registerDeprecatedUpgrade();
 
 var active_choice0_b_bonus = 0.25;
 
-var active_choice0 = registerChoiceUpgrade('weather choice', treeLevelReqBase(8).mulr(0.05),
+var active_choice0 = registerChoiceUpgrade('weather choice',
   function() {
     return state.treelevel >= 8;
   }, function() {
@@ -1968,12 +1972,12 @@ function() {
 }, 0);
 
 // 2
-var challenge_rocks = registerChallenge('rocks challenge', 12, Num(0.03),
+var challenge_rocks = registerChallenge('rocks challenge', 15, Num(0.03),
 `The rocks challenge has the following rules:<br>
 • All regular crops, upgrades, ... are available and work as usual<br>
 • There are randomized unremovable rocks on the field, blocking the planting of crops<br>
 <br>
-The rock pattern is determined at the start of the challenge, and is randomly genererated with a 3-hour UTC time interval as the pseudorandom seed, so you can get a new pattern every 3 hours if desired.
+The rock pattern is determined at the start of the challenge, and is generated with a 3-hour UTC time interval as pseudorandom seed, so you can get a new pattern every 3 hours.
 <br>
 `,
 'one extra storage slot for fruits',
@@ -1984,6 +1988,7 @@ function() {
   state.fruit_slots++;
 }, 15);
 // idea: there could be "rockier" challenges with more rocks at higher levels later
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2150,7 +2155,7 @@ crop2_register_id = 0;
 var special2_0 = registerSpecial2('fern', Res({resin:10}), 1.5, 'gives 100 * n^3 starter seeds', 'gives 100 * n^3 starter seeds after every transcension and also immediately now, with n the amount of ethereal ferns. First one gives 100, with two you get 800, three gives 2700, four gives 6400, and so on.', image_fern_as_crop);
 
 crop2_register_id = 10;
-var automaton2_0 = registerSpecial2('automaton', Res({resin:1000}), 1.5, 'Automates things', 'Automates things. Can have max 1', images_automaton);
+var automaton2_0 = registerSpecial2('automaton', Res({resin:10}), 1.5, 'Automates things', 'Automates things. Can have max 1. See automaton tab.', images_automaton);
 
 // berries2
 crop2_register_id = 25;
@@ -2404,6 +2409,12 @@ var upgrade2_blackberrysecret = registerUpgrade2('blackberry secret', LEVEL2, Re
 var upgrade2_diagonal = registerUpgrade2('diagonal winter warmth', LEVEL2, Res({resin:150}), 2, function() {
   // nothing to do, upgrade count causes the effect elsewhere
 }, function(){return true;}, 1, 'the winter warmth effect of the tree works also diagonally, adding 4 more possible neighbor spots for this effect.', undefined, undefined, tree_images[5][1][3]);
+
+
+var upgrade2_automaton = registerUpgrade2('unlock automaton', LEVEL2, Res({resin:100}), 2, function() {
+  unlockEtherealCrop(automaton2_0);
+  showRegisteredHelpDialog(28);
+}, function(){return true;}, 1, 'the automaton can be placed in the ethereal field, and when placed, unlocks the automaton tab, allowing automating things', undefined, undefined, images_automaton[4]);
 
 ///////////////////////////
 LEVEL2 = 2;
@@ -2714,13 +2725,6 @@ function treeLevelIndex(level) {
   return result;
 }
 
-// The resin given by tree going to this level
-// this is the base amount
-function treeLevelResinBase(level) {
-  var base = 1.141;  // 1.141 is such that at tree level 10, you have 11 resin total, at tree level 15 you get slightly more than 25 (so you can buy 1 10-resin and 1 15-resin thing after first reset then)
-  if(state.upgrades2[upgrade2_resin_extraction].count) base = 1.17;
-  return Num.rpow(base, Num(level)).mulr(0.5);
-}
 
 var mistletoe_resin_malus = Num(0.05);
 
@@ -2728,8 +2732,11 @@ var treelevel2_resin_bonus = Num(0.05);
 
 // amount with bonuses etc...
 function treeLevelResin(level, breakdown) {
-  var resin = treeLevelResinBase(level);
-  if(breakdown) breakdown.push(['base', true, Num(0), resin.clone()]);
+  var base = 1.141;  // 1.141 is such that at tree level 10, you have 11 resin total, at tree level 15 you get slightly more than 25 (so you can buy 1 10-resin and 1 15-resin thing after first reset then)
+  if(state.upgrades2[upgrade2_resin_extraction].count) base = 1.17;
+  var resin = Num.rpow(base, Num(level)).mulr(0.5);
+
+  if(breakdown) breakdown.push(['base (per tree level x' + base + ')', true, Num(0), resin.clone()]);
 
   if(getSeason() == 3) {
     var bonus = getWinterTreeResinBonus();
@@ -2762,33 +2769,35 @@ function treeLevelResin(level, breakdown) {
 }
 
 function currentTreeLevelResin(breakdown) {
-  return treeLevelResin(state.treelevel);
+  return treeLevelResin(state.treelevel, breakdown);
 }
 
 function nextTreeLevelResin(breakdown) {
-  return treeLevelResin(state.treelevel + 1);
+  return treeLevelResin(state.treelevel + 1, breakdown);
 }
 
 // get twig drop at tree going to this level from mistletoes
 // this excludes the transcension II+ bonus
-function getTwigs(level) {
+function getTwigs(level, breakdown) {
   var res = new Res();
   res.twigs = Num(Math.log2(state.mistletoes + 1));
   res.twigs.mulrInPlace(0.25);
-
   var base = 1.14;
   if(state.upgrades2[upgrade2_twigs_extraction].count) base = 1.17;
-
   res.twigs.mulInPlace(Num(base).powr(level));
+
+  if(breakdown) breakdown.push(['base (per tree level x' + base + ')', true, Num(0), res.clone()]);
+
   if(getSeason() == 2) {
     var bonus = getAutumnMistletoeBonus();
     res.twigs.mulInPlace(bonus);
+    if(breakdown) breakdown.push(['autumn bonus', true, bonus, res.clone()]);
   }
   return res;
 }
 
-function nextTwigs() {
-  return getTwigs(state.treelevel + 1);
+function nextTwigs(breakdown) {
+  return getTwigs(state.treelevel + 1, breakdown);
 }
 
 function treeLevel2ReqBase(level) {
