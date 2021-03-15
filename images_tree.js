@@ -48,16 +48,16 @@ var stem_metal_header10 = 'X:#fff O:#eee o:#ddd x:#ccc'; // diamond
 // the images have season dependent palette, for colors qgGQ. Use them as green, but they'll become season dependent. Only those 4 colors.
 function createTreeImages(name, top, bottom, opt_stem_header) {
   var s = (opt_stem_header ? (' ' + opt_stem_header) : '') + '\n';
-  var a0 = generateImageCanvas('#' + leaves_spring_header + s + top.trim());
-  var a1 = generateImageCanvas('#' + leaves_summer_header + s + top.trim());
-  var a2 = generateImageCanvas('#' + leaves_autumn_header + s + top.trim());
-  var a3 = generateImageCanvas('#' + leaves_winter_header + s + top.trim());
-  var a4 = generateImageCanvas('#' + leaves_ethereal_header + s + top.trim());
-  var b0 = generateImageCanvas('#' + leaves_spring_header + s + bottom.trim());
-  var b1 = generateImageCanvas('#' + leaves_summer_header + s + bottom.trim());
-  var b2 = generateImageCanvas('#' + leaves_autumn_header + s + bottom.trim());
-  var b3 = generateImageCanvas('#' + leaves_winter_header + s + bottom.trim());
-  var b4 = generateImageCanvas('#' + leaves_ethereal_header + s + bottom.trim());
+  var a0 = generateImageCanvas(leaves_spring_header + s + top.trim());
+  var a1 = generateImageCanvas(leaves_summer_header + s + top.trim());
+  var a2 = generateImageCanvas(leaves_autumn_header + s + top.trim());
+  var a3 = generateImageCanvas(leaves_winter_header + s + top.trim());
+  var a4 = generateImageCanvas(leaves_ethereal_header + s + top.trim());
+  var b0 = generateImageCanvas(leaves_spring_header + s + bottom.trim());
+  var b1 = generateImageCanvas(leaves_summer_header + s + bottom.trim());
+  var b2 = generateImageCanvas(leaves_autumn_header + s + bottom.trim());
+  var b3 = generateImageCanvas(leaves_winter_header + s + bottom.trim());
+  var b4 = generateImageCanvas(leaves_ethereal_header + s + bottom.trim());
   return [name, [a0, a1, a2, a3, a4], [b0, b1, b2, b3, b4]];
 }
 
@@ -469,11 +469,11 @@ createTreeImages('adult tree', `
 ................
 ................
 ....QGQQQGQ.....
-...QGQgGQQGG....
+...GGQgGQQGG....
 ..QGQGgQGGGGG...
 .QGQGgQGQGgQGq..
 .QGGQgQQGGQGGqq.
-.QQGgQGgGgqQgGq.
+.GQGgQGgGgqQgGq.
 .QGQggQQgqqGqgq.
 ..GQqqQgqqQGgq..
 ...QgGgogGgqqq..
@@ -504,11 +504,11 @@ createTreeImages('adult tree', `
 createTreeImages('adult tree', `
 ................
 ........Q.......
-....QQQQGQQQ....
+....QGQQGQQQ....
 ...QGQGGGGGgq...
 ..QGQQGQQgqgqq..
 ..QGgQQgGqgqqq..
-.QQQGgGGgGqqGQG.
+.GQQGgGGgGqqGQG.
 .GQGGqQGggqQGGq.
 .QQGgqQqGqqGGqg.
 .QGQgqqGqqQgqgq.
@@ -540,10 +540,10 @@ createTreeImages('adult tree', `
 createTreeImages('adult tree', `
 ................
 ........G.......
-..QQQQQggQgQ....
+..QGQQQggQgQ....
 .QGQGgQGgGGgggq.
 QQQgQQGGQggggqg.
-QgQGQgQgGqQqGQG.
+GgQGQgQgGqQqGQG.
 QGGQgGGGgGqQGGgq
 QQgGGqgGggQGgGqq
 GGQGGgggGqqGGggq
@@ -575,11 +575,11 @@ QggQggqGqqQGgqqq
 // tree level 25
 createTreeImages('adult tree', `
 ................
-...QQ...G...Qg..
+...GQ...G...Qg..
 ..QQQQQggQgQggq.
 .QGgGQGGgGGgggq.
 QGQgQGGGQgggqqg.
-QQQGggQgGqQqQQG.
+GQQGggQgGqQqQQG.
 QGGggQGGgGqQGGqq
 QQgQGqgGggQGgqgq
 QGQGQgggGqqQGgqq

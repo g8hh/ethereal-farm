@@ -43,6 +43,7 @@ function encState(state, opt_raw_only) {
   var processNum = function(value) { process(value, TYPE_NUM); };
   var processString = function(value) { process(value, TYPE_STRING); };
   var processRes = function(value) { process(value, TYPE_RES); };
+  var processFractionChoice = function(value) { process(encFractionChoice(value), TYPE_UINT6); };
   var processBoolArray = function(value) { process(value, TYPE_ARRAY_BOOL); };
   var processUint6Array = function(value) { process(value, TYPE_ARRAY_UINT6); };
   var processIntArray = function(value) { process(value, TYPE_ARRAY_INT); };
@@ -53,8 +54,13 @@ function encState(state, opt_raw_only) {
   var processNumArray = function(value) { process(value, TYPE_ARRAY_NUM); };
   var processStringArray = function(value) { process(value, TYPE_ARRAY_STRING); };
   var processResArray = function(value) { process(value, TYPE_ARRAY_RES); };
+  var processFractionChoiceArray = function(value) {
+    var arr = [];
+    for(var i = 0; i < value.length; i++) arr[i] = encFractionChoice(value[i]);
+    process(arr, TYPE_ARRAY_UINT6);
+  };
 
-  var array, array0, array1, array2, array3, array4, array5, array6;
+  var array, array0, array1, array2, array3, array4, array5, array6, array7;
 
   section = 0; id = 0; // main/misc
   processFloat(state.prevtime);
@@ -267,6 +273,9 @@ function encState(state, opt_raw_only) {
   processFloat(state.g_fastestrun2);
   processFloat(state.g_slowestrun2);
   processUint(state.g_numresets_challenge);
+  processUint(state.g_p_treelevel);
+  processUint(state.g_numresets_challenge_0);
+  processUint(state.g_numresets_challenge_10);
 
 
   section = 11; id = 0; // global run stats
@@ -286,6 +295,7 @@ function encState(state, opt_raw_only) {
   processUint(state.g_numabilities);
   processUint(state.g_numfruits);
   processUint(state.g_numfruitupgrades);
+  processUint(state.g_numautoupgrades);
 
 
   section = 12; id = 0; // current run stats
@@ -305,6 +315,7 @@ function encState(state, opt_raw_only) {
   processUint(state.c_numabilities);
   processUint(state.c_numfruits);
   processUint(state.c_numfruitupgrades);
+  processUint(state.c_numautoupgrades);
 
 
   section = 13; id = 0; // previous run stats
@@ -325,6 +336,7 @@ function encState(state, opt_raw_only) {
     processUint(state.p_numabilities);
     processUint(state.p_numfruits);
     processUint(state.p_numfruitupgrades);
+    processUint(state.p_numautoupgrades);
   }
 
 
@@ -341,8 +353,9 @@ function encState(state, opt_raw_only) {
   deltaEnc(state.reset_stats_level);
   deltaEnc(state.reset_stats_level2);
   deltaEnc(state.reset_stats_time);
-  deltaEnc(state.reset_stats_resin);
+  deltaEnc(state.reset_stats_total_resin);
   deltaEnc(state.reset_stats_challenge);
+  deltaEnc(state.reset_stats_resin);
 
 
   section = 15; id = 0; // first run stats
@@ -451,6 +464,9 @@ function encState(state, opt_raw_only) {
   array2 = [];
   array3 = [];
   array4 = [];
+  array5 = [];
+  array6 = [];
+  array7 = [];
   prev = 0;
   for(var i = 0; i < unlocked.length; i++) {
     if(unlocked[i] - prev < 0) throw 'challenges must be registered in increasing order';
@@ -460,21 +476,31 @@ function encState(state, opt_raw_only) {
     array2.push(state.challenges[unlocked[i]].num);
     array3.push(state.challenges[unlocked[i]].maxlevel);
     array4.push(state.challenges[unlocked[i]].besttime);
+    array5.push(state.challenges[unlocked[i]].besttime2);
+    array6.push(state.challenges[unlocked[i]].num_completed);
+    array7.push(state.challenges[unlocked[i]].num_completed2);
   }
   processUintArray(array0);
   processUintArray(array1);
   processUintArray(array2);
   processUintArray(array3);
   processFloatArray(array4);
-
   processUint(state.challenge);
+  processFloatArray(array5);
+  processUintArray(array6);
+  processUintArray(array7);
+
 
 
 
   section = 20; id = 0; // automaton
   processBool(state.automaton_enabled);
-  processBoolArray(state.automaton_unlocked);
+  processUintArray(state.automaton_unlocked);
   processUintArray(state.automaton_choice);
+  processUint(state.automaton_autoupgrade);
+  processFractionChoiceArray(state.automaton_autoupgrade_fraction);
+  processUint(state.automaton_autoplant);
+  processFractionChoiceArray(state.automaton_autoplant_fraction);
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -554,6 +580,7 @@ function decState(s) {
   var processNum = function(def) { return process(def, TYPE_NUM); };
   var processString = function(def) { return process(def, TYPE_STRING); };
   var processRes = function(def) { return process(def, TYPE_RES); };
+  var processFractionChoice = function(def) { return decFractionChoice(process(def, TYPE_UINT6)); };
   var processBoolArray = function(def) { return process(def, TYPE_ARRAY_BOOL); };
   var processUint6Array = function(def) { return process(def, TYPE_ARRAY_UINT6); };
   var processIntArray = function(def) { return process(def, TYPE_ARRAY_INT); };
@@ -564,9 +591,15 @@ function decState(s) {
   var processNumArray = function(def) { return process(def, TYPE_ARRAY_NUM); };
   var processStringArray = function(def) { return process(def, TYPE_ARRAY_STRING); };
   var processResArray = function(def) { return process(def, TYPE_ARRAY_RES); };
+  var processFractionChoiceArray = function(def) {
+    var arr = process(def, TYPE_ARRAY_UINT6);
+    if(!arr) return arr;
+    for(var i = 0; i < arr.length; i++) arr[i] = decFractionChoice(arr[i]);
+    return arr;
+  };
 
-  var array, array0, array1, array2, array3, array4, array5, array6;
-  var index, index0, index1, index2, index3, index4, index5, index6;
+  var array, array0, array1, array2, array3, array4, array5, array6, array7;
+  var index, index0, index1, index2, index3, index4, index5, index6, index7;
 
 
   section = 0; id = 0; // main/misc
@@ -637,7 +670,7 @@ function decState(s) {
   for(var y = 0; y < h; y++) {
     state.field[y] = [];
     for(var x = 0; x < w; x++) {
-      state.field[y][x] = new Cell(x, y);
+      state.field[y][x] = new Cell(x, y, false);
       var f = state.field[y][x];
       f.index = array0[index0++];
       if(f.hasCrop()) {
@@ -666,7 +699,7 @@ function decState(s) {
   for(var y = 0; y < h2; y++) {
     state.field2[y] = [];
     for(var x = 0; x < w2; x++) {
-      state.field2[y][x] = new Cell(x, y);
+      state.field2[y][x] = new Cell(x, y, true);
       var f = state.field2[y][x];
       f.index = array0[index0++];
       if(f.hasCrop()) {
@@ -823,6 +856,13 @@ function decState(s) {
   if(save_version >= 4096*1+28) {
     state.g_numresets_challenge = processUint();
   }
+  if(save_version >= 4096*1+42) {
+    state.g_p_treelevel = processUint();
+  }
+  if(save_version >= 4096*1+43) {
+    state.g_numresets_challenge_0 = processUint();
+    state.g_numresets_challenge_10 = processUint();
+  }
 
   if(error) return err(4);
 
@@ -844,6 +884,7 @@ function decState(s) {
   if(save_version >= 4096*1+9) state.g_numabilities = processUint();
   if(save_version >= 4096*1+17) state.g_numfruits = processUint();
   if(save_version >= 4096*1+17) state.g_numfruitupgrades = processUint();
+  if(save_version >= 4096*1+42) state.g_numautoupgrades = processUint();
   if(error) return err(4);
 
 
@@ -864,6 +905,7 @@ function decState(s) {
   if(save_version >= 4096*1+9) state.c_numabilities = processUint();
   if(save_version >= 4096*1+17) state.c_numfruits = processUint();
   if(save_version >= 4096*1+17) state.c_numfruitupgrades = processUint();
+  if(save_version >= 4096*1+42) state.c_numautoupgrades = processUint();
   if(error) return err(4);
 
 
@@ -883,8 +925,9 @@ function decState(s) {
     state.p_numupgrades = processUint();
     state.p_numupgrades_unlocked = processUint();
     if(save_version >= 4096*1+9) state.p_numabilities = processUint(0);
-  if(save_version >= 4096*1+17) state.p_numfruits = processUint();
-  if(save_version >= 4096*1+17) state.p_numfruitupgrades = processUint();
+    if(save_version >= 4096*1+17) state.p_numfruits = processUint();
+    if(save_version >= 4096*1+17) state.p_numfruitupgrades = processUint();
+    if(save_version >= 4096*1+42) state.p_numautoupgrades = processUint();
     if(error) return err(4);
   }
 
@@ -903,8 +946,9 @@ function decState(s) {
   if(save_version >= 4096+1*26) {
     state.reset_stats_level2 = deltaDec(processIntArray());
     state.reset_stats_time = deltaDec(processIntArray());
-    state.reset_stats_resin = deltaDec(processIntArray());
+    state.reset_stats_total_resin = deltaDec(processIntArray());
     state.reset_stats_challenge = deltaDec(processIntArray());
+    if(save_version >= 4096+1*44) state.reset_stats_resin = deltaDec(processIntArray());
   }
   if(error) return err(4);
 
@@ -1021,6 +1065,22 @@ function decState(s) {
     array2 = processUintArray();
     array3 = processUintArray();
     array4 = processFloatArray();
+    state.challenge = processUint();
+    if(save_version >= 4096*1+43) {
+      array5 = processFloatArray();
+      array6 = processUintArray();
+      array7 = processUintArray();
+    } else {
+      array5 = [];
+      array6 = [];
+      array7 = [];
+      for(var i = 0; i < array1.length; i++) {
+        array5[i] = 0; // challenge with only 1 stage does not set besttime2
+        array6[i] = array1[i]; // moved num completions from .completed to .num_completed in v0.1.43
+        array1[i] = array1[i] ? 1 : 0; // this now represents the stage reached rather than single completion
+        array7[i] = 0;
+      }
+    }
     if(error) return err(4);
     if(array0.length != array1.length || array0.length != array2.length || array0.length != array3.length || array0.length != array4.length) {
       return err(4);
@@ -1035,9 +1095,27 @@ function decState(s) {
       state.challenges[index].num = array2[i];
       state.challenges[index].maxlevel = array3[i];
       state.challenges[index].besttime = array4[i];
+      state.challenges[index].besttime2 = array5[i];
+      state.challenges[index].num_completed = array6[i];
+      state.challenges[index].num_completed2 = array7[i];
     }
 
-    state.challenge = processUint();
+  }
+  // fix up the fact that the more fair g_numresets_challenge_10 stat didn't exist yet before v 0.1.43, and a few other stat changes
+  if(save_version < 4096*1+43) {
+    state.g_numresets_challenge_10 = 0;
+    for(var i = 0; i < registered_challenges.length; i++) {
+      var j = registered_challenges[i];
+      state.g_numresets_challenge_10 += state.challenges[j].num_completed;
+      if(state.challenge == j) state.challenges[j].num--; // no longer counts current challenge
+    }
+  }
+  // if a new update adds a new challenge stage, invalidate besttime2 and num_completed2, since those only count for the final stage
+  for(var i = 0; i < registered_challenges.length; i++) {
+    var c = challenges[registered_challenges[i]];
+    var c2 = state.challenges[registered_challenges[i]];
+    if(c2.besttime2 != 0 && c2.completed < c.targetlevel.length) c2.besttime2 = 0;
+    if(c2.num_completed2 != 0 && c2.completed < c.targetlevel.length) c2.num_completed2 = 0;
   }
 
 
@@ -1045,8 +1123,34 @@ function decState(s) {
   section = 20; id = 0; // automaton
   if(save_version >= 4096*1+40) {
     state.automaton_enabled = processBool();
-    state.automaton_unlocked = processBoolArray();
+    if(save_version >= 4096*1+43) {
+      state.automaton_unlocked = processUintArray();
+    } else {
+      state.automaton_unlocked = processBoolArray();
+      for(var i = 0; i < state.automaton_unlocked.length; i++) state.automaton_unlocked[i] = (state.automaton_unlocked[i] ? 1 : 0);
+    }
     state.automaton_choice = processUintArray();
+  }
+  if(save_version >= 4096*1+42) {
+    state.automaton_autoupgrade = processUint();
+    var fraction = [];
+    if(save_version >= 4096*1+43) {
+      fraction = processFractionChoiceArray();
+    } else {
+      fraction = [processFractionChoice()];
+    }
+    if(error) return err(4);
+    for(var i = 0; i < fraction.length; i++) {
+      state.automaton_autoupgrade_fraction[i] = fraction[i];
+    }
+    for(var i = fraction.length; i < state.automaton_autoupgrade_fraction.length; i++) {
+      state.automaton_autoupgrade_fraction[i] = fraction[1];
+    }
+  }
+  if(save_version >= 4096*1+46) {
+    state.automaton_autoplant = processUint();
+    state.automaton_autoplant_fraction = processFractionChoiceArray();
+    if(error) return err(4);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1150,6 +1254,14 @@ function decState(s) {
     if(state.challenge == challenge_bees && !state.upgrades[shortmul_0].unlocked) {
       state.upgrades[shortmul_0].unlocked = true;
     }
+  }
+
+  // it was accidently storing these resources gotten at start of run from previous run, rather than end of current run.
+  // displaying the ones you actually got from the run itself is more logical
+  if(save_version < 4096*1+45) {
+    state.c_res.resin = Num(0);
+    state.c_res.twigs = Num(0);
+    state.c_res.essence = Num(0);
   }
 
   state.g_numloads++;

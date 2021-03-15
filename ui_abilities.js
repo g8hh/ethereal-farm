@@ -33,7 +33,7 @@ var watercressbutton = undefined;
 // just like how the numbers are defined in data: duration is the running time, wait is the cooldown time plus the running time (total cycle time)
 function formatAbilityDurationTooltipText(name, description, duration, wait) {
   var cooldown = wait - duration;
-  return name + ': ' + description + '<br><br>' + 'Running time: ' + util.formatDuration(duration) + '<br>Cooldown time: ' + util.formatDuration(cooldown) + '<br>Total cycle: ' + util.formatDuration(wait);
+  return name + ': ' + description + '<br>' + 'Run time: ' + util.formatDuration(duration) + '. Cooldown time: ' + util.formatDuration(cooldown);
 }
 
 
@@ -184,7 +184,7 @@ function updateAbilitiesUI() {
   if(state.g_res.seeds.gtr(1000)) {
     if(!watercressbutton) {
       watercressbutton = new Flex(topFlex, [1,-2.1], [0,0.1], [1,-1.3], [0,0.9]);
-      watercressbutton.div.title = 'Refresh watercress: active watercress and remainders only. Hotkey: w';
+      watercressbutton.div.title = 'Refresh watercress: active watercress and remainders only. Hotkey: w. With shift, deletes all watercress.';
       styleButton0(watercressbutton.div, true);
       var canvasFlex = new Flex(watercressbutton, 0, 0, 1, 1);
       var canvas = createCanvas('0%', '0%', '100%', '100%', canvasFlex.div);
@@ -235,16 +235,10 @@ function refreshWatercress(opt_clear) {
   update();
 }
 
+
 document.addEventListener('keydown', function(e) {
-  /*if(e.key == 'a') {
-    if(state.upgrades[upgrade_sununlock].count && util.getTime() - state.suntime > getSunWait()) actions.push({type:ACTION_ABILITY, ability:1});
-    if(state.upgrades[upgrade_mistunlock].count && util.getTime() - state.misttime > getMistWait()) actions.push({type:ACTION_ABILITY, ability:0});
-    if(state.upgrades[upgrade_rainbowunlock].count && util.getTime() - state.rainbowtime > getRainbowWait()) actions.push({type:ACTION_ABILITY, ability:2});
-    update();
-  }*/
-  if(e.key == 'a') {
-    showMessage('a key no longer works since only 1 weather ability can be active at once now, use 1, 2 or 3 to enable an ability instead.', C_INVALID, 98764561);
-  }
+  if(util.eventHasShiftKey(e) || util.eventHasCtrlKey(e)) return;
+
   if(e.key == '1') {
     actions.push({type:ACTION_ABILITY, ability:1});
     update();

@@ -23,7 +23,7 @@ var FIELD_REMAINDER = 3; // remainder debris of temporary plant. Counts as empty
 var FIELD_ROCK = 4; // for challenges with rocks
 
 // field cell
-function Cell(x, y) {
+function Cell(x, y, is_ethereal) {
   // index of crop, but with different numerical values:
   // 0 = empty
   // 1..(CROPINDEX-1): special: 1=tree top, 2=tree bottom, ...
@@ -36,12 +36,15 @@ function Cell(x, y) {
 
   // only used for ethereal field. TODO: make a Cell2 class for ethereal field instead
   this.justplanted = false; // planted during this run (this transcension), so can't be deleted until next one.
+
+  this.is_ethereal = is_ethereal;
 }
 
 Cell.prototype.isFullGrown = function() {
   if(this.index < CROPINDEX) return false; // not relevant for non-crops
   var c = this.getCrop();
   if(c.type == CROPTYPE_SHORT) return this.growth > 0;
+  if(state.challenge == challenge_wither) return this.growth > 0;
   return this.growth >= 1;
 };
 
@@ -59,13 +62,8 @@ Cell.prototype.cropIndex = function() {
 // TODO: make a class Cell2 for ethereal field instead
 Cell.prototype.getCrop = function() {
   if(this.index < CROPINDEX) return undefined;
+  if(this.is_ethereal) return crops2[this.index - CROPINDEX];
   return crops[this.index - CROPINDEX];
-};
-
-// for ethereal field. TODO: don't have the distinction this way, have a Cell2 class instead
-Cell.prototype.getCrop2 = function() {
-  if(this.index < CROPINDEX) return undefined;
-  return crops2[this.index - CROPINDEX];
 };
 
 
@@ -109,18 +107,19 @@ function MedalState() {
 
 function ChallengeState() {
   this.unlocked = false;
-  this.completed = 0; // whether, and how often, the challenge was successfully completed (excluding currently ongoing challenge, if any)
-  this.num = 0; // amount of times started, whether successful or not, including the current one
+  this.completed = 0; // whether the challenge was successfully completed, or higher values if higher versions of the challenge with extra rewards were completed
+  this.num = 0; // amount of times started, whether successful or not, excluding the current one
+  this.num_completed = 0; // how often, the challenge was successfully completed (excluding currently ongoing challenge, if any)
+  this.num_completed2 = 0; // how often, the challenge was successfully completed to final stage, or 0 if this challenge only has 1 stage
   this.maxlevel = 0; // max level reached with this challenge (excluding the current ongoing challenge if any)
-  this.besttime = 0; // best time for reaching targetlevel, even when not resetting. If continuing the challenge for higher maxlevel, still only the time to reach targetlevel is counted, so it's the best time for completing the main reward part of the challenge.
+  this.besttime = 0; // best time for reaching first targetlevel, even when not resetting. If continuing the challenge for higher maxlevel, still only the time to reach targetlevel is counted, so it's the best time for completing the first main reward part of the challenge.
+  this.besttime2 = 0; // best time for reaching last targetlevel, or 0 if this challenge only has 1 stage. NOTE: so best time of first and last stage are tracked, if there are more intermediate stages, those are not tracked
 }
 
 
 
 // all the state that should be able to get saved
 function State() {
-  this.timemul = 1; // global total time speed multiplier. TODO: this should NOT be in the state, probably. Try to get this to exist in the debug interface only.
-
   // prevtime is used to know how much time elapsed at next tick, including after loading a savegame
   // everything in the game such work such that no matter if there was 1 tick of 100 seconds, or 100 ticks of 1 second, the result is the same (other than numerical precision possibly), and this too even if many days of duration in between
   // so that saving, and browsers pausing tabs, both have no effect on game
@@ -256,8 +255,11 @@ function State() {
   this.automaton_enabled = true; // default is true, but is not active until you actually placed the automaton
 
   /*
-  unlocked automation features. If array too short, means everything behind that counts as false.
+  array of integers. unlocked automation features. If array too short, means everything behind that counts as false.
+  at each index (value 0 means not yet unlocked):
   0: automation of choice upgrades
+  1: automation of crop upgrades (1=basic, 2=more options enabled)
+  2: automation of planting
   */
   this.automaton_unlocked = [];
 
@@ -269,6 +271,40 @@ function State() {
   3: auto choose second choice
   */
   this.automaton_choice = [];
+
+  /*
+  0: auto upgrades disabled
+  1: auto upgrades enabled
+  */
+  this.automaton_autoupgrade = 0;
+
+  /*
+  fraction of resources the automaton is allowed to use for auto-upgrades, e.g. 0.1 to allow to use up to 10% of resources for auto upgrades
+  meaning of each index:
+  0: global, when there is no distinction made between plant types
+  1: other / challenge-specific crops
+  2: watercress
+  3: berry
+  4: mushroom
+  5: flower
+  6: nettle
+  7: beehive
+  */
+  this.automaton_autoupgrade_fraction = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+
+  /*
+  0: auto plant disabled
+  1: auto plant enabled
+  */
+  this.automaton_autoplant = 0;
+
+  /*
+  fraction of resources automation is allowed to use for auto-plant
+  the indices are the same as for automaton_autoupgrade_fraction, even though some are unused (e.g. watercress)
+  */
+  this.automaton_autoplant_fraction = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+
+
 
   // challenges
   this.challenge = 0;
@@ -296,7 +332,10 @@ function State() {
   this.g_slowestrun = 0; // runtime of slowest transcension
   this.g_fastestrun2 = 0; // as measured on wall clock instead of the runtime that gets deltas added each time
   this.g_slowestrun2 = 0;
-  this.g_numresets_challenge = 0; // amount of soft resets done to start a challenge
+  this.g_numresets_challenge = 0; // amount of soft resets done after a challenge, excluding g_numresets_challenge_0
+  this.g_numresets_challenge_0 = 0; // amount of challenges quit immediately, before tree leveled even to level 1, so these do not count for stats, not even num runs of a challenge
+  this.g_numresets_challenge_10 = 0; // amount of soft resets done after a challenge where at least level 10 was reached, so that it can be counted as at least as good as a regular g_numresets value
+  this.g_p_treelevel = 0; // max tree level of any run, but not including the current run
 
   this.g_starttime = 0; // starttime of the game (when first run started)
   this.g_runtime = 0; // this would be equal to getTime() - g_starttime if game-time always ran at 1x (it does, except if pause or boosts would exist)
@@ -314,6 +353,7 @@ function State() {
   this.g_numabilities = 0; // weather abilities ran
   this.g_numfruits = 0; // fruits received
   this.g_numfruitupgrades = 0;
+  this.g_numautoupgrades = 0; // upgrades done with automaton. These are also counted in the standard g_numupgrades as well.
   // WHEN ADDING FIELDS HERE, UPDATE THEM ALSO IN softReset()!
 
   // saved stats, for previous reset (to compare with current one)
@@ -335,6 +375,7 @@ function State() {
   this.p_numabilities = 0;
   this.p_numfruits = 0;
   this.p_numfruitupgrades = 0;
+  this.p_numautoupgrades = 0;
   // WHEN ADDING FIELDS HERE, UPDATE THEM ALSO IN softReset()!
 
   // saved stats, for current reset only
@@ -354,13 +395,15 @@ function State() {
   this.c_numabilities = 0;
   this.c_numfruits = 0;
   this.c_numfruitupgrades = 0;
+  this.c_numautoupgrades = 0;
   // WHEN ADDING FIELDS HERE, UPDATE THEM ALSO IN softReset()!
 
   // progress stats, most recent stat at the end
   this.reset_stats_level = []; // reset at what tree level for each reset
   this.reset_stats_level2 = []; // tree level 2 at end of this run
   this.reset_stats_time = []; // time of this run, as integer of 15-minute intervals to keep the stat compact
-  this.reset_stats_resin = []; // log2 of 1 + total resin earned in total at start of this run, as integer
+  this.reset_stats_total_resin = []; // log2 of 1 + total resin earned in total at start of this run, as integer
+  this.reset_stats_resin = []; // log2 of 1 + resin earned during this run
   this.reset_stats_challenge = []; // what type of challenge, if any, for this run
 
   // amount of fields with nothing on them (index 0)
@@ -438,7 +481,9 @@ function State() {
 
   // derived stat, not to be saved.
   this.challenges_unlocked = 0;
-  this.challenges_completed = 0;
+  this.challenges_completed = 0; // completed at least 1 stage
+  this.challenges_completed2 = 0; // completed all stages
+  this.challenges_completed3 = 0; // stages completed
 
   // how many mistletoes are correctly touching the tree
   // computed by precomputeField
@@ -456,6 +501,13 @@ function State() {
   // how many challenges are unlocked but never attempted
   // derived stat, not to be saved.
   this.untriedchallenges = 0;
+
+  // highest tier crop of this croptype on the basic field, including growing ones
+  // derived stat, not to be saved.
+  this.highestoftypeplanted = [];
+
+  // higest tier unlocked by research for this croptype
+  this.highestoftypeunlocked = [];
 }
 
 function clearField(state) {
@@ -463,7 +515,7 @@ function clearField(state) {
   for(var y = 0; y < state.numh; y++) {
     state.field[y] = [];
     for(var x = 0; x < state.numw; x++) {
-      state.field[y][x] = new Cell(x, y);
+      state.field[y][x] = new Cell(x, y, false);
     }
   }
   var treex = Math.floor((state.numw - 1) / 2); // for even field size, tree will be shifted to the left, not the right.
@@ -477,7 +529,7 @@ function clearField2(state) {
   for(var y = 0; y < state.numh2; y++) {
     state.field2[y] = [];
     for(var x = 0; x < state.numw2; x++) {
-      state.field2[y][x] = new Cell(x, y);
+      state.field2[y][x] = new Cell(x, y, true);
     }
   }
   var treex2 = Math.floor((state.numw2 - 1) / 2); // for even field size, tree will be shifted to the left, not the right.
@@ -499,7 +551,7 @@ function changeFieldSize(state, w, h) {
     for(var x = 0; x < w; x++) {
       var x2 = x + xs;
       var y2 = y + ys;
-      field[y][x] = (x2 >= 0 && x2 < state.numw && y2 >= 0 && y2 < state.numh) ? state.field[y2][x2] : new Cell(x, y);
+      field[y][x] = (x2 >= 0 && x2 < state.numw && y2 >= 0 && y2 < state.numh) ? state.field[y2][x2] : new Cell(x, y, false);
       field[y][x].x = x;
       field[y][x].y = y;
     }
@@ -525,7 +577,7 @@ function changeField2Size(state, w, h) {
     for(var x = 0; x < w; x++) {
       var x2 = x + xs;
       var y2 = y + ys;
-      field[y][x] = (x2 >= 0 && x2 < state.numw2 && y2 >= 0 && y2 < state.numh2) ? state.field2[y2][x2] : new Cell(x, y);
+      field[y][x] = (x2 >= 0 && x2 < state.numw2 && y2 >= 0 && y2 < state.numh2) ? state.field2[y2][x2] : new Cell(x, y, true);
       field[y][x].x = x;
       field[y][x].y = y;
     }
@@ -588,6 +640,8 @@ function computeDerived(state) {
   state.cropcount = [];
   state.fullgrowncroptypecount = [];
   state.croptypecount = [];
+  state.highestoftypeplanted = [];
+  state.highestoftypeunlocked = [];
   for(var i = 0; i < registered_crops.length; i++) {
     state.cropcount[registered_crops[i]] = 0;
     state.fullgrowncropcount[registered_crops[i]] = 0;
@@ -598,6 +652,8 @@ function computeDerived(state) {
   for(var i = 0; i < NUM_CROPTYPES; i++) {
     state.fullgrowncroptypecount[i] = 0;
     state.croptypecount[i] = 0;
+    state.highestoftypeplanted[i] = 0;
+    state.highestoftypeunlocked[i] = 0;
   }
   for(var y = 0; y < state.numh; y++) {
     for(var x = 0; x < state.numw; x++) {
@@ -611,8 +667,9 @@ function computeDerived(state) {
           state.fullgrowncropcount[c.index]++;
           state.fullgrowncroptypecount[c.type]++;
           state.numfullgrowncropfields++;
-          if(c.type != CROPTYPE_SHORT) state.numfullpermanentcropfields++
+          if(c.type != CROPTYPE_SHORT) state.numfullpermanentcropfields++;
         }
+        state.highestoftypeplanted[c.type] = Math.max(c.tier || 0, state.highestoftypeplanted[c.type]);
       } else if(f.index == 0 || f.index == FIELD_REMAINDER) {
         state.numemptyfields++;
       } else {
@@ -663,27 +720,31 @@ function computeDerived(state) {
   state.upgrades2_affordable = 0;
 
   for(var i = 0; i < registered_upgrades.length; i++) {
-    var u = state.upgrades[registered_upgrades[i]];
-    var u2 = upgrades[registered_upgrades[i]];
-    if(u.unlocked) {
+    var u = upgrades[registered_upgrades[i]];
+    var u2 = state.upgrades[registered_upgrades[i]];
+    if(u2.unlocked) {
       state.upgrades_unlocked++;
-      if(!u.seen && !u.count) state.upgrades_new++;
-      if(!u2.isExhausted()) {
-        state.upgrades_upgradable++; // same as u2.canUpgrade()
-        if(u2.getCost().le(state.res)) state.upgrades_affordable++;
+      if(!u2.seen && !u2.count) state.upgrades_new++;
+      if(!u.isExhausted()) {
+        state.upgrades_upgradable++; // same as u.canUpgrade()
+        if(u.getCost().le(state.res)) state.upgrades_affordable++;
+      }
+      if(u2.count && u.iscropunlock && u.cropid != undefined) {
+        var c = crops[u.cropid];
+        state.highestoftypeunlocked[c.type] = Math.max(c.tier || 0, state.highestoftypeunlocked[c.type]);
       }
     }
   }
 
   for(var i = 0; i < registered_upgrades2.length; i++) {
-    var u = state.upgrades2[registered_upgrades2[i]];
-    var u2 = upgrades2[registered_upgrades2[i]];
-    if(u.unlocked) {
+    var u = upgrades2[registered_upgrades2[i]];
+    var u2 = state.upgrades2[registered_upgrades2[i]];
+    if(u2.unlocked) {
       state.upgrades2_unlocked++;
-      if(!u.seen) state.upgrades2_new++;
-      if(!u2.isExhausted()) {
+      if(!u2.seen) state.upgrades2_new++;
+      if(!u.isExhausted()) {
         state.upgrades2_upgradable++; // same as u2.canUpgrade()
-        if(u2.getCost().le(state.res)) state.upgrades2_affordable++;
+        if(u.getCost().le(state.res)) state.upgrades2_affordable++;
       }
     }
   }
@@ -723,6 +784,10 @@ function computeDerived(state) {
           var boost = Crop2.getNeighborBoost(f);
           state.ethereal_berry_bonus.addInPlace(boost.addr(1).mulr(1));
         }
+        if(index == berry2_2) {
+          var boost = Crop2.getNeighborBoost(f);
+          state.ethereal_berry_bonus.addInPlace(boost.addr(1).mulr(4));
+        }
         if(index == mush2_0) {
           var boost = Crop2.getNeighborBoost(f);
           state.ethereal_mush_bonus.addInPlace(boost.addr(1).mulr(0.25));
@@ -735,10 +800,10 @@ function computeDerived(state) {
           var boost = Crop2.getNeighborBoost(f);
           state.ethereal_flower_bonus.addInPlace(boost.addr(1).mulr(0.25));
         }
-        /*if(index == flower2_1) {
+        if(index == flower2_1) {
           var boost = Crop2.getNeighborBoost(f);
           state.ethereal_flower_bonus.addInPlace(boost.addr(1).mulr(1));
-        }*/
+        }
         if(index == nettle2_0) {
           var boost = Crop2.getNeighborBoost(f);
           state.ethereal_nettle_bonus.addInPlace(boost.addr(1).mulr(0.25));
@@ -756,16 +821,23 @@ function computeDerived(state) {
 
   state.challenges_unlocked = 0;
   state.challenges_completed = 0;
+  state.challenges_completed2 = 0;
+  state.challenges_completed3 = 0;
   state.challenge_bonus = Num(0);
   state.untriedchallenges = 0;
   for(var i = 0; i < registered_challenges.length; i++) {
     var index = registered_challenges[i];
-    var c = state.challenges[index];
-    if(c.unlocked) state.challenges_unlocked++;
-    if(c.completed) state.challenges_completed++;
-    if(c.unlocked && c.num == 0) state.untriedchallenges++;
-    if(c.maxlevel > 0) {
-      state.challenge_bonus.addInPlace(getChallengeBonus(index, c.maxlevel));
+    var c = challenges[index];
+    var c2 = state.challenges[index];
+    if(c2.unlocked) state.challenges_unlocked++;
+    if(c2.completed) {
+      state.challenges_completed++;
+      if(c.fullyCompleted()) state.challenges_completed2++;
+      state.challenges_completed3 += c2.completed;
+    }
+    if(c2.unlocked && c2.num == 0) state.untriedchallenges++;
+    if(c2.maxlevel > 0) {
+      state.challenge_bonus.addInPlace(getChallengeBonus(index, c2.maxlevel));
     }
   }
 }
@@ -802,12 +874,12 @@ function Fruit() {
     return tierNames[this.tier] + ' ' + this.typeName();
   };
 
-  this.abilitiesToString = function(opt_abbreviated) {
+  this.abilitiesToString = function(opt_abbreviated, opt_nolevels) {
     var result = '';
     for(var i = 0; i < this.abilities.length; i++) {
       if(i > 0) result += ', ';
       result += getFruitAbilityName(this.abilities[i], opt_abbreviated);
-      if(!isInherentAbility(this.abilities[i])) result += ' ' + util.toRoman(this.levels[i]);
+      if(!opt_nolevels && !isInherentAbility(this.abilities[i])) result += ' ' + util.toRoman(this.levels[i]);
     }
     return result;
   };
@@ -901,6 +973,18 @@ function haveAutomaton() {
   return !!state.crop2count[automaton2_0];
 }
 
-function automatonAnabled() {
+function automatonEnabled() {
   return haveAutomaton() && state.automaton_enabled;
+}
+
+function autoUpgradesEnabled() {
+  if(!automatonEnabled()) return false;
+  if(!state.automaton_unlocked[1]) return false;
+  return !!state.automaton_autoupgrade;
+}
+
+function autoPlantEnabled() {
+  if(!automatonEnabled()) return false;
+  if(!state.automaton_unlocked[2]) return false;
+  return !!state.automaton_autoplant;
 }

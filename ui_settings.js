@@ -351,9 +351,9 @@ function createAdvancedSettingsDialog() {
   button.id = 'preferences_saveonclose';
 
   button = makeSettingsButton();
-  updatebuttontext = function(button) { button.textEl.innerText = 'shift+click deletes plant: ' + (state.allowshiftdelete ? 'yes' : 'no'); };
+  updatebuttontext = function(button) { button.textEl.innerText = 'shift or ctrl click may delete crop: ' + (state.allowshiftdelete ? 'yes' : 'no'); };
   updatebuttontext(button);
-  registerTooltip(button, 'Allow directly deleting plant without any dialog or confirmation by shift+clicking it on the field. Note that you can also always shift+click empty fields to repeat last planted type (opposite of deleting), that always works regardless of this setting.');
+  registerTooltip(button, 'Allow deleting crop without any dialog or confirmation by ctrl+clicking it on the field, or replacing by shift+clicking it. Note that you can always shift+click empty fields to repeat last planted type (opposite of deleting), regardless of this setting.');
   addButtonAction(button, bind(function(button, updatebuttontext, e) {
     state.allowshiftdelete = !state.allowshiftdelete;
     updatebuttontext(button);
@@ -417,7 +417,12 @@ function createStatsDialog() {
   if(state.g_numresets > 0 || state.treelevel > 0) text += '• tree level: ' + open + state.treelevel + close + '<br>';
   text += '• start time: ' + open + util.formatDate(state.c_starttime) + close + '<br>';
   text += '• duration: ' + open + util.formatDuration(util.getTime() - state.c_starttime) + close + '<br>';
-  text += '• total earned: ' + open + state.c_res.toString(true) + close + '<br>';
+  var c_res = Res(state.c_res);
+  var tlevel = Math.floor(state.treelevel / min_transcension_level);
+  c_res.resin.addInPlace(state.resin.mulr(tlevel));
+  c_res.twigs.addInPlace(state.twigs.mulr(tlevel));
+  c_res.essence.addInPlace(getUpcomingFruitEssence().essence);
+  text += '• total earned: ' + open + c_res.toString(true) + close + '<br>';
   text += '• highest resources: ' + open + state.c_max_res.toString(true) + close + '<br>';
   text += '• highest production/s: ' + open + state.c_max_prod.toString(true) + close + '<br>';
   text += '• ferns: ' + open + state.c_numferns + close + '<br>';
@@ -437,7 +442,7 @@ function createStatsDialog() {
   if(state.g_numresets > 0) {
     text += '<br>';
     text += '<b>Total</b><br>';
-    text += '• highest tree level: ' + open + state.g_treelevel + close + '<br>';
+    text += '• highest tree level: ' + open + state.g_treelevel + ' (before: ' + state.g_p_treelevel + ')' + close + '<br>';
     text += '• achievements: ' + open + state.g_nummedals + close + '<br>';
     text += '• start time: ' + open + util.formatDate(state.g_starttime) + close + '<br>';
     text += '• duration: ' + open + util.formatDuration(util.getTime() - state.g_starttime) + close + '<br>';
@@ -470,7 +475,7 @@ function createStatsDialog() {
     text += '• ethereal tree level: ' + open + state.treelevel2 + close + '<br>';
     text += '• total resin: ' + open + state.g_res.resin.toString() + close + '<br>';
     text += '• transcensions: ' + open + state.g_numresets + close + '<br>';
-    var n = Math.min(Math.min(10, state.reset_stats_time.length), state.reset_stats_level.length);
+    var n = Math.min(Math.min(15, state.reset_stats_time.length), state.reset_stats_level.length);
     if(n > 0) {
       if(n == 1) {
         text += '• last transcension level: ' + open;
@@ -481,7 +486,9 @@ function createStatsDialog() {
         var j = n - 1 - i;
         text += (i == 0 ? ' ' : ', ') +
             state.reset_stats_level[state.reset_stats_level.length - 1 - i] +
-            ' (' + (state.reset_stats_time[state.reset_stats_time.length - 1 - i] / 4) + 'h)';
+            ' (' + (state.reset_stats_time[state.reset_stats_time.length - 1 - i] / 4) + 'h' +
+            (state.reset_stats_challenge[state.reset_stats_challenge.length - 1 - i] ? ', C' : '') +
+            ')';
       }
       text += close + '<br>';
     }
@@ -501,13 +508,23 @@ function createStatsDialog() {
     text += '• challenges attempted: ' + open + (state.g_numresets_challenge + (state.challenge ? 1 : 0)) + close + '<br>';
     text += '• challenges unlocked: ' + open + state.challenges_unlocked + close + '<br>';
     text += '• challenges completed: ' + open + state.challenges_completed + close + '<br>';
+    if(state.challenges_completed != state.challenges_completed2) {
+      text += '• challenge stages completed: ' + open + state.challenges_completed3 + close + '<br>';
+      text += '• challenge fully completed: ' + open + state.challenges_completed2 + close + '<br>';
+    }
     text += '• total challenge production bonus: ' + open + state.challenge_bonus.toPercentString() + close + '<br>';
 
     for(var i = 0; i < challenges_order.length; i++) {
       var c = challenges[challenges_order[i]];
       var c2 = state.challenges[challenges_order[i]];
       if(!c2.unlocked) continue;
-      text += '• ' + c.name + ': completed: ' + open +  (c2.completed ? 'yes' : 'no') + close +
+      var completedtext;
+      if(c.targetlevel.length == 1 || !c2.completed) {
+        completedtext = (c2.completed ? 'yes' : 'no');
+      } else {
+        completedtext = '' + c2.completed + ' of ' + c.targetlevel.length;
+      }
+      text += '• ' + c.name + ': completed: ' + open +  completedtext + close +
                               ', highest level: ' + open + c2.maxlevel + close +
                               ', production bonus: ' + open +  (c.bonus.mulr(c2.maxlevel)).toPercentString() + close + '<br>';
     }
@@ -591,7 +608,7 @@ function showSavegameRecoveryDialog(opt_failed_save) {
   if(opt_failed_save) {
     title = '<font color="red"><b>Loading failed</b></font>. Read this carefully to help recover your savegame if you don\'t have backups. Copypaste all the recovery savegame(s) below and save them in a text file. Once they\'re stored safely by you, try some of them in the "import save" dialog under settings. One of them may be recent enough and work. Even if the recovery saves don\'t work now, a future version of the game may fix it. Apologies for this.';
   } else {
-    title = 'Recovery saves. These may be older saves, some from previous game versions. Use at your own risk, but if your current save has an issue, save all of these to a text file as soon as possible so that if there\'s one good one it doesn\'t risk being overwritten by more issues.';
+    title = 'Recovery saves. These may be older saves, some from previous game versions. Use at your own risk, but if your current save has an issue, save all of these to a text file as soon as possible so that if there\'s one good one it doesn\'t risk being overwritten by more issues. Try importing each of them, hopefully at least one will be good and recent enough.';
   }
 
   var saves = getRecoverySaves();
@@ -666,6 +683,7 @@ function showExportTextDialog(title, text, filename, opt_close_on_clipboard) {
   var area = util.makeAbsElement('textarea', '0', '0', '100%', '100%', areaFlex.div);
 
   area.value = text;
+  area.select();
 }
 
 
@@ -737,6 +755,7 @@ function initSettingsUI_in(dialog) {
         state.g_numimports++;
         state.g_lastimporttime = util.getTime();
         closeAllDialogs();
+        removeChallengeChip();
         removeMedalChip();
         clearUndo();
         initUI();
@@ -827,18 +846,10 @@ function initSettingsUI_in(dialog) {
 
 function initSettingsUI() {
   var gearbutton = new Flex(topFlex, [0,0.1], [0,0.1], [0,0.9], [0,0.9]).div;
-  styleButton0(gearbutton);
-  //gearbutton.style.cursor = 'pointer';
-  //gearbutton.style.userSelect = 'none'; // prevent unwanted selections when double clicking things
+  var canvas = createCanvas('0%', '0%', '100%', '100%', gearbutton);
+  renderImage(image_gear, canvas);
+  styleButton0(gearbutton, true);
   gearbutton.title = 'Settings';
-
-  // gear image
-  gearbutton.style.background = 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABwUlEQVR4Ac3Xs7tfQRDG8Y2ddLHtPvb/ESdlbLsNythsYtu27VSx8eZbz3P3nLn4ofhs/a7mmQnTp08viik4hft4iNOYiwD4FTXAGci4ls0ATyDjXUkGqIItGI8A6xtk/EU5BGMIdqCGN0BdXIYgLEN5BATUgiKaIiCgLJZAEG6gYVqAKrgMGSfQA+vwDYr4jk3oiYOQcRM1kgJshjJsV1KAgVCGjbYBrMVQhqzyPMKyOAA5/MFvyOEkKni/YWco4jPmoC1KoxRaYQY+QhH93HUAqyELj9ASIaIJ7kAWtnkD1McXyPiCVggpmuADZPxEU5SyAabgAl7iFxSxAMFpGhTxG69wEXMDy1HIoSOCU3PI4WKI3ZnxD+UQnErhO5TieWC57QxQPgMBnuXFFUzDJbzC70w/QvzBa1zBvIKOrkHkG351fsOm+Bj5hs1QGkUuRA8zU4iKXopLZaIUl8V+yOE3fkEOJ1DeE2ARlCEr0wIMgDJsZFKATVCG7UxrSi8lNKVrHU3pxpSmtLoNYNUxnfFy08nUhiKaJ7TlN9EQ7sFkG0aVwGAy3D+Y+D3O6GjmcDrXw+k0nMYDPMIZzEMA/P4DcB3trAqvUhUAAAAASUVORK5CYII=)';
-  gearbutton.style.backgroundSize = 'cover';
-  gearbutton.classList.add('pixelated');
-
-  util.setEvent(gearbutton, 'onmouseover', 'gearstyle', function() { gearbutton.style.filter = 'brightness(0.4)'; });
-  util.setEvent(gearbutton, 'onmouseout', 'gearstyle', function() { gearbutton.style.filter = ''; });
 
   addButtonAction(gearbutton, function() {
     var dialog = createDialog();
@@ -848,12 +859,10 @@ function initSettingsUI() {
 
   // changelog / about button
   var aboutbutton = new Flex(topFlex, [1,-0.9], [0,0.1], [1,-0.1], [0,0.9]).div;
-  aboutbutton.style.cursor = 'pointer';
-  aboutbutton.style.userSelect = 'none'; // prevent unwanted selections when double clicking things
+  canvas = createCanvas('0%', '0%', '100%', '100%', aboutbutton);
+  renderImage(images_fern[1], canvas);
+  styleButton0(aboutbutton, true);
   aboutbutton.title = 'About';
-
-  aboutbutton.classList.add('pixelated');
-  aboutbutton.classList.add('changelogbutton');
 
   addButtonAction(aboutbutton, function() {
     createChangelogDialog();

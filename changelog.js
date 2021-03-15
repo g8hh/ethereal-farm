@@ -20,6 +20,44 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 function getChangeLog() {
   var text = '';
 
+  text += '0.1.46 (2021-03-14):';
+  // This is also in preparation for auto-plant, which is half-implemented but not yet its own update timing computations as that revealed the bugs with auto upgrade
+  text += '<br/>• Bugfixes related to update timing and automaton computation.';
+  text += '<br/>• Internal changes in preparation for future auto-plant feature (not yet finished).';
+  text += '<br/>• Buttons to start challenges now show max reached level.';
+  text += '<br/><br/>';
+
+  text += '0.1.45 (2021-03-11):';
+  // another option was to let ctrl do the replacing. But, actually, allowing holding shift to both plant and replace everything may be more convenient, shift always makes the selected plant appear on field, ctrl always deletes (except for planting watercress). And in addition, ctrl for delete also matches the fruits panel where ctrl moves it towards the sacrificial pool
+  text += '<br/>• It\'s now possible to replace crops with shift+click. Deleting is now done with ctrl+click on a crop instead.';
+  text += '<br/>• Last unlocked crop is now also set for shift+plant.';
+  text += '<br/>• Automatic upgrades are now only done for best type of a crop in the field. This prevents spending resources on obsolete upgrades.';
+  text += '<br/><br/>';
+
+  text += '0.1.44 (2021-03-08):';
+  text += '<br/>• Added more ethereal crops';
+  text += '<br/>• Added next tiers of basic crops';
+  text += '<br/>• Re-ordered some crop names. This has no effect on stats of current games, only visual/naming. This to keep the alphabetical tier ordering after inserting new ones, noting that amanita is sorted as "muscaria"';
+  text += '<br/>• Some crop graphics redrawn, e.g. daisy for visible contrast in winter';
+  text += '<br/>• Auto-upgrades no longer store undo';
+  text += '<br/>• Various fixes';
+  text += '<br/><br/>';
+
+  text += '0.1.43 (2021-03-07):';
+  text += '<br/>• Added a second stage to the no-upgrades challenge';
+  text += '<br/>• Added more finetuning settings for auto-upgrades, unlocked by the new stage';
+  // watercress remainder also when non-leeched neighbor types,changed some top bar icons, fixed/tweaked challenge completion counters, click upgrades on right pane to toggle auto-upgrades, add cost to ethereal "see unlocked crops", esc key closes top instead of all dialogs, ...
+  text += '<br/>• Many other small tweaks';
+  text += '<br/><br/>';
+
+  text += '0.1.42 (2021-03-06):';
+  text += '<br/>• Added auto-upgrade to the automaton, requires high enough ethereal tree level and a challenge to become available';
+  text += '<br/>• Added the no-upgrades challenge';
+  text += '<br/>• New fruits now appear in sacrificial slots rather than storage or active slots, except the first one ever';
+  text += '<br/>• Fix tree level-up computation during long time intervals';
+  text += '<br/>• Other tweaks and fixes';
+  text += '<br/><br/>';
+
   text += '0.1.41 (2021-03-01):';
   text += '<br/>• Added the undeletable challenge';
   text += '<br/>• Increased rocks challenge reward target level from 12 to 15 (nothing changes if you already got it)';
