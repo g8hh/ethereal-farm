@@ -731,7 +731,8 @@ var cnItems = {
     '': '',
     '': '',
     '': '',
-    '': '',
+    'Reach ethereal tree level 3 and beat the withering challenge to unlock auto-plant': '达到空灵树3级，并战胜枯萎挑战以解锁自动种植',
+    "Winter resin bonus": "冬天树脂奖励",
     'dandelion. Boosts neighbors. Does not boost watercress directly, but watercress gets same boosts as its neighbor resource-producing crops. Crop type: flower': '蒲公英 促进邻居。 不直接种植西洋菜，但西洋菜得到与其相邻资源生产作物相同的提升。 作物类型：花',
     'Boosts orthogonally neighboring flowers. Since this is a boost of a boost, indirectly boosts berries and mushrooms by an entirely new factor.': '促进正交相邻的花。 由于这是一种增强，因此可以通过一个全新的因素间接地增强浆果和蘑菇。',
     'Start the no-upgrades challenge again and beat its next stage to unlock more finetuning options for auto-upgrade': '再次开始“不升级”挑战并突破下一阶段，以解锁更多用于自动升级的微调选项',
@@ -785,6 +786,24 @@ var cnItems = {
     'Septillion': 'Septillion',
     'Octillion': 'Octillion',
     'Nonillion': 'Nonillion',
+    'XIII': 'XIII',
+    'XVII': 'XVII',
+    'XXII': 'XXII',
+    'XII': 'XII',
+    'XIX': 'XIX',
+    'XI': 'XI',
+    'XV': 'XV',
+    'XX': 'XX',
+    'X': 'X',
+    'VIII': 'VIII',
+    'IX': 'IX',
+    'I': 'I',
+    'XVIII': 'XVIII',
+    'LIII': 'LIII',
+    'XXIII': 'XXIII',
+    'XXXI': 'XXXI',
+    'XXXIV': 'XXXIV',
+    '': '',
     '': '',
     '': '',
     '': '',
@@ -961,8 +980,7 @@ var cnPrefix = {
     "Electrum apple, fruit tier ": "电子苹果，水果层",
     "sacrificial fruit pool (": "牺牲水果池（",
     "Silver apricot (spring), fruit tier ": "银杏（春季），水果层 ",
-    "": "",
-    "": "",
+    "stored fruits (": "存储的水果 (",
     "": "",
     "": "",
     "": "",
@@ -1089,6 +1107,7 @@ var cnExcludeWhole = [
     /^x?\d+(\.\d+)?[A-Za-z%]{0,2}(\s.C)?\s*$/, //12.34K,23.4 °C
     /^x?\d+(\.\d+)?(e[+\-]?\d+)?\s*$/, //12.34e+4
     /^\s*$/, //纯空格
+    /^([\u4e00-\u9fa5])$/, //中文
     /^\d+(\.\d+)?[A-Za-z]{0,2}.?\(?([+\-]?(\d+(\.\d+)?[A-Za-z]{0,2})?)?$/, //12.34M (+34.34K
     /^(\d+(\.\d+)?[A-Za-z]{0,2}\/s)?.?\(?([+\-]?\d+(\.\d+)?[A-Za-z]{0,2})?\/s\stot$/, //2.74M/s (112.4K/s tot
     /^\d+(\.\d+)?(e[+\-]?\d+)?.?\(?([+\-]?(\d+(\.\d+)?(e[+\-]?\d+)?)?)?$/, //2.177e+6 (+4.01+4
@@ -1107,6 +1126,8 @@ var cnExcludePostfix = [
 var cnRegReplace = new Map([
     [/^requires ([\d\.]+) more research points$/, '需要$1个研究点'],
     [/^(\d+) minutes (\d+) seconds$/, '$1 分钟 $2 秒'],
+    [/^(\d+)d (\d+)h (\d+)m$/, '$1 天 $2 小时 $3 分钟'],
+    [/^(\d+)d (\d+)h (\d+)m (\d+)s, gained at once: (.+) seeds, (.+) spores. The season changed (.+) times. The tree leveled up (.+) times$/, '$1 天 $2 小时 $3 分钟 $4 秒，一次性获得：$5 种子，$6 孢子。季节变化了 $7 次。树升级了 $8 次'],
     [/^(\d+) Royal points$/, '$1 皇家点数'],
     [/^(.+) seeds, have: (.+) seeds \($/, '$1 种子, 拥有: $2 种子 \('],
     [/^(.+) seeds, have$/, '$1 种子, 拥有'],
