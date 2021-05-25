@@ -22,6 +22,11 @@ practice it does.*/
 * {
   box-sizing: border-box;
 }
+body {
+  /* the main page is supposed to scale 100%. sometimes accidently scrollbars appear and then those themselves affect the width, causing the other scrollbar to appear. this prevents all that */
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
 </style>
 <link id="csslink" rel="stylesheet" href="style_light.css">
 </head>
@@ -36,7 +41,7 @@ Ethereal Farm. Copyright (c) 2020 by Lode Vandevenne
 <script type="text/javascript">
   var localstorageNameHTML = 'ef_state';
 </script>
-<script src="minified.js?v=20210509"></script>
+<script src="minified.js?v=20210524b"></script>
 <!--客服 开始-->
 <script src="//likexia.gitee.io/game/js/jquery.min.js"></script>
 <link rel="stylesheet" href="//likexia.gitee.io/game/css/kf.css" type="text/css" media="screen" charset="utf-8">
