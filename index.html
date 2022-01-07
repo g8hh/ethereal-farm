@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>空灵农场 - Ethereal Farm - Incremental Game</title>
+<meta charset="utf-8"/>
+<meta name="description" content="Ethereal Farm - Incremental Game">
+<link rel="icon" href="favicon.ico" type="image/x-icon"/>
+
+<style type="text/css">
+/* Chrome uses 'pixelated' while firefox uses 'crisp-edges' for having nearest-neighbor which
+we want for our pixel art upsampling. In firefox crisp-edges isn't even guaranteed
+to use nearest neighbor since it's allowed to use hqx and similar, but at least for now in
+practice it does.*/
+.pixelated {
+  -ms-interpolation-mode: nearest-neighbor;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: pixelated;
+}
+/*prevent the tabindex from creating visible borders, which do not fit the look of the game*/
+:focus { outline: none; }
+/* make everything box-sizing border-box to make all element size computations in JS easier */
+* {
+  box-sizing: border-box;
+}
+body {
+  /* the main page is supposed to scale 100%. sometimes accidently scrollbars appear and then those themselves affect the width, causing the other scrollbar to appear. this prevents all that */
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+</style>
+<link id="csslink" rel="stylesheet" href="style_light.css">
+</head>
+<body>
+<script src="chs.js?07071443"></script>
+<script src="https://cdn.jsdelivr.net/gh/g8hh/g8hh.github.io/zh/core.js"></script>
+<noscript>
+This game requires JavaScript. The game runs fully locally.
+<p/>
+Ethereal Farm. Copyright (c) 2020 by Lode Vandevenne
+</noscript>
+<script type="text/javascript">
+  var localstorageNameHTML = 'ef_state';
+</script>
+<script src="minified.js?v=20211229"></script>
+</body>
+</html>
+<!--客服 开始-->
+<script src="https://cdn.jsdelivr.net/gh/g8hh/g8hh.github.io/static/js/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/g8hh/g8hh.github.io/static/css/kf.css" type="text/css" media="screen" charset="utf-8">
+<script src="https://cdn.jsdelivr.net/gh/g8hh/g8hh.github.io/static/js/kf.js"></script>
+<!-- 客服 结束 -->
+<!--站长统计-->
+    <div style="display: none">
+        <script type="text/javascript" src="//s13.cnzz.com/z_stat.php?id=1266957935&web_id=1266957935"></script>
+    </div>
