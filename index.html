@@ -12,9 +12,9 @@ we want for our pixel art upsampling. In firefox crisp-edges isn't even guarante
 to use nearest neighbor since it's allowed to use hqx and similar, but at least for now in
 practice it does.*/
 .pixelated {
+  image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
   image-rendering: -moz-crisp-edges;
-  image-rendering: pixelated;
 }
 /* Disables the pixelated style */
 .nonpixelated {
@@ -45,12 +45,12 @@ body {
 <noscript>
 This game requires JavaScript. The game runs fully locally.
 <p/>
-Ethereal Farm. Copyright (c) 2020-2023 by Lode Vandevenne
+Ethereal Farm. Copyright (c) 2020-2024 by Lode Vandevenne
 </noscript>
 <script type="text/javascript">
   var localstorageNameHTML = 'ef_state';
 </script>
-<script src="minified.js?v=20230821"></script>
+<script src="minified.js?v=20240818"></script>
 <!--客服 开始-->
 <script src="//g8hh.com.cn/static/js/jquery.min.js"></script>
 <link rel="stylesheet" href="//g8hh.com.cn/static/css/kf.css" type="text/css" media="screen" charset="utf-8">
