@@ -230,12 +230,12 @@ function TransSubTextNode(node) {
 								node.innerText = cnItem(node.innerText, node);
                         } else {
                             TransSubTextNode(node);
-                            transTaskMgr.doTask();
                         }
                     }
                 }
             }
         }
+        transTaskMgr.doTask();
         observer.observe(targetNode, observer_config);
         //window.afterTransTime = performance.now();
         //console.log("捕获到页面变化并执行汉化，耗时" + (afterTransTime - beforeTransTime) + "毫秒");
