@@ -2507,6 +2507,7 @@ var cnRegReplace = new Map([
     [/^Tree leveled up to: young sprout, level (.+). Consumed: (.+) spores. Tree boost: (.+)\%. Resin added: (.+). Total resin ready$/, '树木升至：新芽，等级$1。消耗：$2孢子。 树木助力：$3\%。 添加的树脂：$4。 总树脂准备就绪'],
     [/^([\d\.]+) seeds ⇒ ([\d\.]+)$/, '$1 种子 ⇒ $2'],
     [/^([\d\.]+)s of ([\d\.]+)m ([\d\.]+)s$/, '$1秒 \/ $2分 $3秒'],
+    [/^([\d\.]+)m ([\d\.]+)s, gained at once: (.+)$/, '$1分 $2秒，一次性获得: $3'],
     [/^([\d\.]+) amber$/, '$1 琥珀'],
     [/^([\d\.]+) months ago$/, '$1 月前'],
     [/^([\d\.]+) years, ([\d\.]+)$/, '$1 年，$2'],
