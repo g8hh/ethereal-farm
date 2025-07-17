@@ -129,12 +129,23 @@ body {
   background-color: #fff1;
 }
 
+.efButtonTranslucentCantRestricted {
+  background-color: #0000;
+  border: 1px solid #777;
+  color: #966;
+}
+
 .efButtonMistletoeOngoing {
   color: #c99;
 }
 
 .efButtonMistletoeBusy {
   color: #959595;
+}
+
+.efButtonInfinityAscend {
+  color: #cc0;
+  text-shadow: 0px 0px 5px #ff8;
 }
 
 .efSeasonBgSpring {

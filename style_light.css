@@ -104,12 +104,23 @@ a:visited {
   background-color: #0001;
 }
 
+.efButtonTranslucentCantRestricted {
+  background-color: #0000;
+  border: 1px solid black;
+  color: #b88;
+}
+
 .efButtonMistletoeOngoing {
   color: #a66;
 }
 
 .efButtonMistletoeBusy {
   color: #666;
+}
+
+.efButtonInfinityAscend {
+  color: #440;
+  text-shadow: 0px 0px 5px #ff8;
 }
 
 .efSeasonBgSpring {
